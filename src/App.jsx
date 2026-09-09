@@ -270,15 +270,10 @@ function Keypad({ onKey }) {
   );
 }
 
-function IncomeModal({ space, onClose, onSubmit }) {
-  const [amount, setAmount] = useState("");
-  const [date, setDate] = useState(todayISO());
-  const [note, setNote] = useState("");
+/* monto grande animado + teclado, reutilizable (Cash App style) */
+function AmountEntry({ amount, setAmount }) {
   const [bump, setBump] = useState(0);
-  const active = space.buckets.filter((b) => !b.archived);
   const cents = parseAmount(amount);
-  const preview = cents ? allocate(cents, active) : [];
-
   const pushKey = (k) => {
     setBump((n) => n + 1);
     setAmount((cur) => {
@@ -296,8 +291,39 @@ function IncomeModal({ space, onClose, onSubmit }) {
       return cur + k;
     });
   };
-
   const display = amount === "" ? "0" : amount;
+  return (
+    <div>
+      <div className="flex items-center justify-center py-2 select-none">
+        <span key={bump}
+          className={`gp-pop inline-flex items-start font-bold tabular-nums tracking-tight ${cents ? "text-emerald-600" : "text-slate-300"}`}>
+          <span className="text-2xl mt-2 mr-0.5">$</span>
+          <span className="text-6xl leading-none">{display}</span>
+        </span>
+      </div>
+      <Keypad onKey={pushKey} />
+    </div>
+  );
+}
+
+/* campo de nota, ancho completo y mobile-first (evita traslapes) */
+function NoteField({ value, onChange, placeholder = "Escribe una nota…" }) {
+  return (
+    <div>
+      <Label>Nota (opcional)</Label>
+      <input value={value} onChange={onChange} placeholder={placeholder} maxLength={120}
+        className={inputCls} />
+    </div>
+  );
+}
+
+function IncomeModal({ space, onClose, onSubmit }) {
+  const [amount, setAmount] = useState("");
+  const [date, setDate] = useState(todayISO());
+  const [note, setNote] = useState("");
+  const active = space.buckets.filter((b) => !b.archived);
+  const cents = parseAmount(amount);
+  const preview = cents ? allocate(cents, active) : [];
 
   return (
     <Modal
@@ -320,27 +346,14 @@ function IncomeModal({ space, onClose, onSubmit }) {
       }
     >
       <div className="space-y-4">
-        {/* monto grande animado */}
-        <div className="flex items-center justify-center py-3 select-none">
-          <span key={bump}
-            className={`gp-pop inline-flex items-start font-bold tabular-nums tracking-tight ${cents ? "text-emerald-600" : "text-slate-300"}`}>
-            <span className="text-2xl mt-2 mr-0.5">$</span>
-            <span className="text-6xl leading-none">{display}</span>
-          </span>
-        </div>
+        <AmountEntry amount={amount} setAmount={setAmount} />
 
-        {/* teclado */}
-        <Keypad onKey={pushKey} />
-
-        <div className="grid grid-cols-2 gap-3">
+        <div className="space-y-3">
           <div>
             <Label>Fecha</Label>
             <input type="date" value={date} onChange={(e) => setDate(e.target.value)} className={inputCls} />
           </div>
-          <div>
-            <Label>Nota (opcional)</Label>
-            <input value={note} onChange={(e) => setNote(e.target.value)} placeholder="Cliente, venta…" className={inputCls} />
-          </div>
+          <NoteField value={note} onChange={(e) => setNote(e.target.value)} placeholder="Cliente, venta…" />
         </div>
 
         <div className="rounded-2xl bg-slate-50 p-3">
@@ -394,6 +407,12 @@ function ExpenseModal({ space, balances, onClose, onSubmit }) {
       }
     >
       <div className="space-y-4">
+        <AmountEntry amount={amount} setAmount={setAmount} />
+        {over && (
+          <p className="text-xs text-amber-600 -mt-1 text-center">
+            Este gasto deja la cuenta en negativo. Puedes transferir desde otra cuenta antes.
+          </p>
+        )}
         <div>
           <Label>Cuenta de origen</Label>
           <div className="grid gap-2">
@@ -404,8 +423,8 @@ function ExpenseModal({ space, balances, onClose, onSubmit }) {
                 <button
                   key={b.id}
                   onClick={() => setBucketId(b.id)}
-                  className={`flex items-center gap-2.5 rounded-xl border px-3 py-2.5 text-left ${
-                    sel ? "border-teal-500 ring-1 ring-teal-500 bg-teal-50/50" : "border-slate-200 hover:bg-slate-50"
+                  className={`flex items-center gap-2.5 rounded-2xl border px-3 py-2.5 text-left ${
+                    sel ? "border-emerald-500 ring-1 ring-emerald-500 bg-emerald-50/50" : "border-slate-200 hover:bg-slate-50"
                   }`}
                 >
                   <span className={`h-2.5 w-2.5 rounded-full ${c.dot}`} />
@@ -416,24 +435,12 @@ function ExpenseModal({ space, balances, onClose, onSubmit }) {
             })}
           </div>
         </div>
-        <div>
-          <Label>Monto</Label>
-          <MoneyInput value={amount} onChange={setAmount} />
-          {over && (
-            <p className="text-xs text-amber-600 mt-1.5">
-              Este gasto deja la cuenta en negativo. Puedes transferir desde otra cuenta antes.
-            </p>
-          )}
-        </div>
-        <div className="grid grid-cols-2 gap-3">
+        <div className="space-y-3">
           <div>
             <Label>Fecha</Label>
             <input type="date" value={date} onChange={(e) => setDate(e.target.value)} className={inputCls} />
           </div>
-          <div>
-            <Label>Nota (opcional)</Label>
-            <input value={note} onChange={(e) => setNote(e.target.value)} placeholder="¿En qué fue?" className={inputCls} />
-          </div>
+          <NoteField value={note} onChange={(e) => setNote(e.target.value)} placeholder="¿En qué fue?" />
         </div>
       </div>
     </Modal>
@@ -470,13 +477,12 @@ function TransferModal({ space, balances, onClose, onSubmit }) {
       }
     >
       <div className="space-y-4">
+        <AmountEntry amount={amount} setAmount={setAmount} />
         <div><Label>Desde</Label><Select value={fromId} onChange={setFromId} /></div>
         <div className="flex justify-center"><ArrowLeftRight size={18} className="text-slate-300 rotate-90" /></div>
         <div><Label>Hacia</Label><Select value={toId} onChange={setToId} /></div>
         {fromId === toId && <p className="text-xs text-amber-600">Elige dos cuentas distintas.</p>}
-        <div><Label>Monto</Label><MoneyInput value={amount} onChange={setAmount} /></div>
-        <div><Label>Nota (opcional)</Label>
-          <input value={note} onChange={(e) => setNote(e.target.value)} className={inputCls} /></div>
+        <NoteField value={note} onChange={(e) => setNote(e.target.value)} placeholder="Motivo del movimiento…" />
       </div>
     </Modal>
   );
