@@ -10,9 +10,9 @@ import {
 } from "./cloud.js";
 
 const inputCls =
-  "w-full rounded-xl border border-slate-200 bg-white px-3.5 py-2.5 text-slate-900 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-teal-500 focus:border-teal-500";
+  "w-full rounded-2xl border border-slate-200 bg-white px-3.5 py-2.5 text-slate-900 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500";
 const btnPrimary =
-  "inline-flex items-center justify-center gap-1.5 rounded-xl bg-teal-700 px-4 py-2.5 text-sm font-semibold text-white hover:bg-teal-800 focus:outline-none focus:ring-2 focus:ring-teal-500 focus:ring-offset-2 disabled:opacity-40 disabled:cursor-not-allowed w-full";
+  "inline-flex items-center justify-center gap-1.5 rounded-2xl bg-emerald-600 px-4 py-2.5 text-sm font-semibold text-white hover:bg-emerald-700 focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:ring-offset-2 disabled:opacity-40 disabled:cursor-not-allowed w-full";
 const labelCls = "block text-sm font-medium text-slate-700 mb-1.5";
 
 /* input de contraseña con ojito para mostrar/ocultar */
@@ -46,7 +46,7 @@ function Shell({ children, sub }) {
     <div className="min-h-screen bg-slate-100 flex items-center justify-center px-4">
       <div className="w-full max-w-sm">
         <div className="flex flex-col items-center mb-6">
-          <div className="h-14 w-14 rounded-2xl bg-teal-700 flex items-center justify-center mb-3">
+          <div className="h-14 w-14 rounded-3xl bg-gradient-to-br from-emerald-500 to-emerald-700 flex items-center justify-center mb-3 shadow-sm">
             <PiggyBank size={28} className="text-white" />
           </div>
           <h1 className="text-xl font-bold text-slate-900">La Ganancia es Primero</h1>
@@ -184,12 +184,12 @@ function AuthScreen({ onSignedIn }) {
         )}
         {mode === "login" && (
           <button type="button" onClick={() => go("forgot")}
-            className="text-xs font-medium text-teal-700 hover:underline">
+            className="text-xs font-medium text-emerald-700 hover:underline">
             ¿Olvidaste tu contraseña?
           </button>
         )}
         {err && <p className="text-xs text-rose-600">{err}</p>}
-        {info && <p className="text-xs text-teal-700">{info}</p>}
+        {info && <p className="text-xs text-emerald-700">{info}</p>}
         <button disabled={!ok || busy} className={btnPrimary} onClick={submit}>
           {busy ? <Loader2 size={16} className="animate-spin" />
             : mode === "login" ? <LogIn size={16} />
@@ -246,7 +246,7 @@ function UpdatePasswordScreen({ onDone }) {
             onKeyDown={(e) => e.key === "Enter" && submit()} />
         </div>
         {err && <p className="text-xs text-rose-600">{err}</p>}
-        {info && <p className="text-xs text-teal-700">{info}</p>}
+        {info && <p className="text-xs text-emerald-700">{info}</p>}
         <button disabled={busy || !pw1 || !pw2} className={btnPrimary} onClick={submit}>
           {busy ? <Loader2 size={16} className="animate-spin" /> : <KeyRound size={16} />} Guardar contraseña
         </button>

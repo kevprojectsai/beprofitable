@@ -201,12 +201,12 @@ const Label = ({ children }) => (
 );
 
 const inputCls =
-  "w-full rounded-xl border border-slate-200 bg-white px-3.5 py-2.5 text-slate-900 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-teal-500 focus:border-teal-500";
+  "w-full rounded-2xl border border-slate-200 bg-white px-3.5 py-2.5 text-slate-900 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500";
 
 const btnPrimary =
-  "inline-flex items-center justify-center gap-1.5 rounded-xl bg-teal-700 px-4 py-2.5 text-sm font-semibold text-white hover:bg-teal-800 focus:outline-none focus:ring-2 focus:ring-teal-500 focus:ring-offset-2 disabled:opacity-40 disabled:cursor-not-allowed";
+  "inline-flex items-center justify-center gap-1.5 rounded-2xl bg-emerald-600 px-4 py-2.5 text-sm font-semibold text-white hover:bg-emerald-700 focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:ring-offset-2 disabled:opacity-40 disabled:cursor-not-allowed";
 const btnGhost =
-  "inline-flex items-center justify-center gap-1.5 rounded-xl bg-slate-100 px-4 py-2.5 text-sm font-semibold text-slate-700 hover:bg-slate-200 focus:outline-none focus:ring-2 focus:ring-slate-300";
+  "inline-flex items-center justify-center gap-1.5 rounded-2xl bg-slate-100 px-4 py-2.5 text-sm font-semibold text-slate-700 hover:bg-slate-200 focus:outline-none focus:ring-2 focus:ring-slate-300";
 
 function PasswordField({ value, onChange, placeholder, onKeyDown }) {
   const [show, setShow] = useState(false);
@@ -1216,12 +1216,12 @@ export default function App({ cloud, onLogout }) {
       <div className="max-w-3xl mx-auto px-4 sm:px-6 pb-24 pt-6">
         {/* header */}
         <div className="flex items-center gap-2 mb-5">
-          <div className="h-9 w-9 rounded-xl bg-teal-700 flex items-center justify-center shrink-0">
+          <div className="h-10 w-10 rounded-2xl bg-gradient-to-br from-emerald-500 to-emerald-700 flex items-center justify-center shrink-0 shadow-sm">
             <PiggyBank size={20} className="text-white" />
           </div>
           <button onClick={() => setModal("account")}
             className="flex-1 min-w-0 text-left group" aria-label="Configurar mi cuenta">
-            <h1 className="text-base font-bold text-slate-900 leading-tight truncate group-hover:text-teal-700">
+            <h1 className="text-base font-bold text-slate-900 leading-tight truncate group-hover:text-emerald-700">
               {cloud?.name ? `Hola, ${cloud.name}` : "La Ganancia es Primero"}
             </h1>
             <p className="text-xs text-slate-500">Reparte antes de gastar</p>
@@ -1240,7 +1240,7 @@ export default function App({ cloud, onLogout }) {
             </span>
           )}
           <button onClick={() => setModal("advice")}
-            className="flex items-center gap-1.5 rounded-full bg-teal-50 text-teal-700 px-3 py-1.5 text-sm font-medium hover:bg-teal-100">
+            className="flex items-center gap-1.5 rounded-full bg-emerald-50 text-emerald-700 px-3 py-1.5 text-sm font-medium hover:bg-emerald-100">
             <BookOpen size={15} /> <span className="hidden sm:inline">Consejos</span>
           </button>
         </div>
@@ -1282,7 +1282,7 @@ export default function App({ cloud, onLogout }) {
                     onDragStart={() => setDragIndex(i)}
                     onDragEnd={() => setDragIndex(null)}
                     onDragOver={(e) => onChipDragOver(e, i)}
-                    className={`group relative shrink-0 snap-start w-60 sm:w-64 rounded-2xl p-4 text-left text-white bg-gradient-to-br ${gradOf(col)} shadow-md overflow-hidden transition-all cursor-pointer ${
+                    className={`group relative shrink-0 snap-start w-60 sm:w-64 rounded-3xl p-4 text-left text-white bg-gradient-to-br ${gradOf(col)} shadow-md overflow-hidden transition-all cursor-pointer ${
                       on ? "ring-2 ring-offset-2 ring-slate-900" : "opacity-80 hover:opacity-100"
                     } ${dragIndex === i ? "opacity-40 scale-95" : ""}`}>
                     <div className="absolute -right-6 -top-8 h-24 w-24 rounded-full bg-white/10" />
@@ -1302,7 +1302,7 @@ export default function App({ cloud, onLogout }) {
                 );
               })}
               <button onClick={() => setModal("newSpace")}
-                className="shrink-0 snap-start w-32 rounded-2xl border-2 border-dashed border-slate-300 text-slate-500 hover:border-teal-400 hover:text-teal-600 flex flex-col items-center justify-center gap-1.5 transition-colors">
+                className="shrink-0 snap-start w-32 rounded-3xl border-2 border-dashed border-slate-300 text-slate-500 hover:border-emerald-400 hover:text-emerald-600 flex flex-col items-center justify-center gap-1.5 transition-colors">
                 <Plus size={20} /> <span className="text-xs font-medium">Nuevo espacio</span>
               </button>
             </div>
@@ -1312,7 +1312,7 @@ export default function App({ cloud, onLogout }) {
         {/* empty state */}
         {!space && (
           <div className="mt-10 text-center max-w-sm mx-auto">
-            <div className="h-14 w-14 rounded-2xl bg-teal-700 flex items-center justify-center mx-auto mb-4">
+            <div className="h-14 w-14 rounded-3xl bg-gradient-to-br from-emerald-500 to-emerald-700 flex items-center justify-center mx-auto mb-4 shadow-sm">
               <Wallet size={26} className="text-white" />
             </div>
             <h2 className="text-lg font-semibold text-slate-900">Crea tu primer espacio</h2>
@@ -1333,8 +1333,8 @@ export default function App({ cloud, onLogout }) {
         {space && (
           <>
             {/* summary card */}
-            <div className="rounded-2xl bg-white shadow-sm border border-slate-100 p-5 mb-5 overflow-hidden">
-              <div className={`h-1 -mx-5 -mt-5 mb-4 bg-gradient-to-r ${gradOf(spaceColor(space, state.spaces.findIndex((s) => s.id === space.id)))}`} />
+            <div className="rounded-3xl bg-white shadow-sm border border-slate-100 p-5 mb-5 overflow-hidden">
+              <div className={`h-1.5 -mx-5 -mt-5 mb-4 bg-gradient-to-r ${gradOf(spaceColor(space, state.spaces.findIndex((s) => s.id === space.id)))}`} />
               <div className="flex items-start justify-between">
                 <div>
                   <div className="flex items-center gap-2">
@@ -1386,7 +1386,7 @@ export default function App({ cloud, onLogout }) {
 
               <div className="flex flex-wrap gap-x-6 gap-y-1 mt-4 mb-4">
                 <div className="flex items-center gap-1.5">
-                  <TrendingUp size={15} className="text-teal-600" />
+                  <TrendingUp size={15} className="text-emerald-600" />
                   <span className="text-xs text-slate-500">Ingresos del mes</span>
                   <span className="text-sm font-semibold text-slate-800 tabular-nums">{fmt(monthIncome, space.currency)}</span>
                 </div>
@@ -1399,15 +1399,18 @@ export default function App({ cloud, onLogout }) {
                 )}
               </div>
 
-              <div className="grid grid-cols-3 gap-2">
-                <button className={btnPrimary} onClick={() => setModal("income")}>
-                  <Plus size={16} /> Ingreso
+              <div className="grid grid-cols-3 gap-2.5">
+                <button onClick={() => setModal("income")}
+                  className="flex flex-col items-center justify-center gap-1.5 rounded-2xl bg-emerald-600 text-white py-3.5 font-semibold hover:bg-emerald-700 shadow-sm transition-colors">
+                  <Plus size={20} /> <span className="text-xs">Ingreso</span>
                 </button>
-                <button className={btnGhost} onClick={() => setModal("expense")}>
-                  <Minus size={16} /> Gasto
+                <button onClick={() => setModal("expense")}
+                  className="flex flex-col items-center justify-center gap-1.5 rounded-2xl bg-slate-100 text-slate-700 py-3.5 font-semibold hover:bg-slate-200 transition-colors">
+                  <Minus size={20} /> <span className="text-xs">Gasto</span>
                 </button>
-                <button className={btnGhost} onClick={() => setModal("transfer")}>
-                  <ArrowLeftRight size={16} /> Mover
+                <button onClick={() => setModal("transfer")}
+                  className="flex flex-col items-center justify-center gap-1.5 rounded-2xl bg-slate-100 text-slate-700 py-3.5 font-semibold hover:bg-slate-200 transition-colors">
+                  <ArrowLeftRight size={20} /> <span className="text-xs">Mover</span>
                 </button>
               </div>
             </div>
@@ -1427,16 +1430,18 @@ export default function App({ cloud, onLogout }) {
                 const share = totalBalance > 0 ? Math.max(0, (bal / totalBalance) * 100) : 0;
                 return (
                   <div key={b.id}
-                    className={`rounded-2xl border p-4 ${b.profit ? "bg-amber-50 border-amber-200" : "bg-white border-slate-100"} shadow-sm`}>
-                    <div className="flex items-center gap-1.5 mb-2">
-                      <span className={`h-2.5 w-2.5 rounded-full ${c.dot}`} />
-                      <span className="text-sm font-medium text-slate-700 truncate flex-1">{b.name}</span>
-                      <span className="text-xs text-slate-400 tabular-nums">{b.percent}%</span>
+                    className={`rounded-3xl p-4 ${c.soft} ${b.profit ? "ring-1 ring-amber-200" : ""}`}>
+                    <div className="flex items-center justify-between mb-3">
+                      <div className={`h-9 w-9 rounded-2xl bg-gradient-to-br ${gradOf(b.color)} flex items-center justify-center text-white shadow-sm`}>
+                        {b.profit ? <PiggyBank size={16} /> : <Wallet size={16} />}
+                      </div>
+                      <span className="text-[11px] font-semibold text-slate-500 bg-white/70 rounded-full px-2 py-0.5 tabular-nums">{b.percent}%</span>
                     </div>
-                    <p className={`text-xl font-bold tabular-nums ${bal < 0 ? "text-rose-600" : "text-slate-900"}`}>
+                    <p className="text-sm font-medium text-slate-600 truncate">{b.name}</p>
+                    <p className={`text-xl font-bold tabular-nums mt-0.5 ${bal < 0 ? "text-rose-600" : "text-slate-900"}`}>
                       {fmt(bal, space.currency)}
                     </p>
-                    <div className="mt-2.5 h-1.5 rounded-full bg-slate-100 overflow-hidden">
+                    <div className="mt-3 h-1.5 rounded-full bg-white/70 overflow-hidden">
                       <div className={`h-full rounded-full ${c.bar} transition-all duration-500 motion-reduce:transition-none`}
                         style={{ width: `${Math.min(100, share)}%` }} />
                     </div>
@@ -1448,15 +1453,15 @@ export default function App({ cloud, onLogout }) {
             {/* movements */}
             <h2 className="text-sm font-semibold text-slate-700 mb-2.5">Movimientos</h2>
             {space.txns.length === 0 ? (
-              <div className="rounded-2xl border border-dashed border-slate-200 bg-white p-6 text-center">
+              <div className="rounded-3xl border border-dashed border-slate-200 bg-white p-6 text-center">
                 <p className="text-sm text-slate-500">Aún no hay movimientos. Empieza registrando un ingreso.</p>
               </div>
             ) : (
-              <div className="rounded-2xl bg-white border border-slate-100 shadow-sm divide-y divide-slate-50">
+              <div className="rounded-3xl bg-white border border-slate-100 shadow-sm divide-y divide-slate-50 overflow-hidden">
                 {space.txns.slice(0, 60).map((t) => {
                   let icon, tint, title, detail, amt;
                   if (t.type === "income") {
-                    icon = <TrendingUp size={16} />; tint = "bg-teal-50 text-teal-600";
+                    icon = <TrendingUp size={16} />; tint = "bg-emerald-50 text-emerald-600";
                     title = "Ingreso repartido"; detail = t.note || "Distribuido entre cuentas";
                     amt = <span className="text-teal-600">+{fmt(t.amount, space.currency)}</span>;
                   } else if (t.type === "expense") {
