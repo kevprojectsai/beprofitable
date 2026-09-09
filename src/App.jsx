@@ -4,7 +4,7 @@ import {
   TrendingUp, PiggyBank, Trash2, Check, ChevronRight, Sparkles, Wallet,
   GripVertical, ChevronUp, ChevronDown, ArrowUpDown,
   Download, Upload, Copy, DatabaseBackup, AlertTriangle, LogOut, BookOpen, UserCog,
-  Mail, Lock,
+  Mail, Lock, Eye, EyeOff,
 } from "lucide-react";
 import AdviceLibrary from "./AdviceLibrary.jsx";
 
@@ -172,6 +172,30 @@ const btnPrimary =
   "inline-flex items-center justify-center gap-1.5 rounded-xl bg-teal-700 px-4 py-2.5 text-sm font-semibold text-white hover:bg-teal-800 focus:outline-none focus:ring-2 focus:ring-teal-500 focus:ring-offset-2 disabled:opacity-40 disabled:cursor-not-allowed";
 const btnGhost =
   "inline-flex items-center justify-center gap-1.5 rounded-xl bg-slate-100 px-4 py-2.5 text-sm font-semibold text-slate-700 hover:bg-slate-200 focus:outline-none focus:ring-2 focus:ring-slate-300";
+
+function PasswordField({ value, onChange, placeholder, onKeyDown }) {
+  const [show, setShow] = useState(false);
+  return (
+    <div className="relative">
+      <input
+        type={show ? "text" : "password"}
+        value={value}
+        onChange={onChange}
+        placeholder={placeholder}
+        onKeyDown={onKeyDown}
+        className={inputCls + " pr-11"}
+      />
+      <button
+        type="button"
+        onClick={() => setShow((v) => !v)}
+        aria-label={show ? "Ocultar contraseña" : "Mostrar contraseña"}
+        className="absolute right-2.5 top-1/2 -translate-y-1/2 p-1 text-slate-400 hover:text-slate-600 focus:outline-none"
+      >
+        {show ? <EyeOff size={18} /> : <Eye size={18} />}
+      </button>
+    </div>
+  );
+}
 
 function MoneyInput({ value, onChange, autoFocus }) {
   return (
@@ -913,13 +937,13 @@ function AccountModal({ cloud, onClose }) {
           <div className="space-y-3">
             <div>
               <Label>Nueva contraseña</Label>
-              <input type="password" value={pw1} onChange={(e) => setPw1(e.target.value)}
-                placeholder="mínimo 6 caracteres" className={inputCls} />
+              <PasswordField value={pw1} onChange={(e) => setPw1(e.target.value)}
+                placeholder="mínimo 6 caracteres" />
             </div>
             <div>
               <Label>Repetir contraseña</Label>
-              <input type="password" value={pw2} onChange={(e) => setPw2(e.target.value)}
-                placeholder="repite la contraseña" className={inputCls}
+              <PasswordField value={pw2} onChange={(e) => setPw2(e.target.value)}
+                placeholder="repite la contraseña"
                 onKeyDown={(e) => e.key === "Enter" && savePassword()} />
             </div>
           </div>
@@ -1134,12 +1158,17 @@ export default function App({ cloud, onLogout }) {
           <div className="h-9 w-9 rounded-xl bg-teal-700 flex items-center justify-center shrink-0">
             <PiggyBank size={20} className="text-white" />
           </div>
-          <div className="flex-1 min-w-0">
-            <h1 className="text-base font-bold text-slate-900 leading-tight truncate">
+          <button onClick={() => setModal("account")}
+            className="flex-1 min-w-0 text-left group" aria-label="Configurar mi cuenta">
+            <h1 className="text-base font-bold text-slate-900 leading-tight truncate group-hover:text-teal-700">
               {cloud?.name ? `Hola, ${cloud.name}` : "La Ganancia es Primero"}
             </h1>
             <p className="text-xs text-slate-500">Reparte antes de gastar</p>
-          </div>
+          </button>
+          <button onClick={() => setModal("account")} aria-label="Mi cuenta"
+            className="flex items-center gap-1.5 rounded-full bg-slate-100 text-slate-700 px-3 py-1.5 text-sm font-medium hover:bg-slate-200 shrink-0">
+            <UserCog size={15} /> <span className="hidden sm:inline">Mi cuenta</span>
+          </button>
           {saveStatus === "saved" && (
             <span className="hidden sm:flex items-center gap-1 text-xs text-slate-400"><Check size={13} /> Guardado</span>
           )}
@@ -1259,10 +1288,6 @@ export default function App({ cloud, onLogout }) {
                           {cloud?.email && (
                             <p className="px-3.5 py-1 text-xs text-slate-400 truncate">{cloud.email}</p>
                           )}
-                          <button onClick={() => { setMenuOpen(false); setModal("account"); }}
-                            className="w-full text-left px-3.5 py-2 text-sm text-slate-700 hover:bg-slate-50 flex items-center gap-2">
-                            <UserCog size={15} /> Mi cuenta
-                          </button>
                           <button onClick={() => { setMenuOpen(false); onLogout && onLogout(); }}
                             className="w-full text-left px-3.5 py-2 text-sm text-rose-600 hover:bg-rose-50 flex items-center gap-2">
                             <LogOut size={15} /> Cerrar sesión

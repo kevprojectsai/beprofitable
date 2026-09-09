@@ -30,7 +30,7 @@ export function getClient() {
   const cfg = getConfig();
   if (!cfg || !cfg.url || !cfg.anon) return null;
   _client = createClient(cfg.url, cfg.anon, {
-    auth: { persistSession: true, autoRefreshToken: true, detectSessionInUrl: false },
+    auth: { persistSession: true, autoRefreshToken: true, detectSessionInUrl: true },
   });
   return _client;
 }
