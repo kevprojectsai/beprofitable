@@ -4,7 +4,7 @@ import {
   TrendingUp, PiggyBank, Trash2, Check, ChevronRight, Sparkles, Wallet,
   GripVertical, ChevronUp, ChevronDown, ArrowUpDown,
   Download, Upload, Copy, DatabaseBackup, AlertTriangle, LogOut, BookOpen, UserCog,
-  Mail, Lock, Eye, EyeOff,
+  Mail, Lock, Eye, EyeOff, Delete,
 } from "lucide-react";
 import AdviceLibrary from "./AdviceLibrary.jsx";
 
@@ -250,13 +250,55 @@ function MoneyInput({ value, onChange, autoFocus }) {
 
 /* ---------- action modals ---------- */
 
+/* teclado tipo calculadora estilo Cash App */
+function Keypad({ onKey }) {
+  const keys = ["1", "2", "3", "4", "5", "6", "7", "8", "9", ".", "0", "back"];
+  return (
+    <div className="grid grid-cols-3 gap-2">
+      {keys.map((k) => (
+        <button
+          key={k}
+          type="button"
+          onClick={() => onKey(k)}
+          aria-label={k === "back" ? "Borrar" : k}
+          className="h-14 rounded-2xl bg-slate-100 hover:bg-slate-200 active:scale-95 transition-transform text-xl font-semibold text-slate-800 flex items-center justify-center select-none"
+        >
+          {k === "back" ? <Delete size={22} /> : k}
+        </button>
+      ))}
+    </div>
+  );
+}
+
 function IncomeModal({ space, onClose, onSubmit }) {
   const [amount, setAmount] = useState("");
   const [date, setDate] = useState(todayISO());
   const [note, setNote] = useState("");
+  const [bump, setBump] = useState(0);
   const active = space.buckets.filter((b) => !b.archived);
   const cents = parseAmount(amount);
   const preview = cents ? allocate(cents, active) : [];
+
+  const pushKey = (k) => {
+    setBump((n) => n + 1);
+    setAmount((cur) => {
+      if (k === "back") return cur.slice(0, -1);
+      if (k === ".") {
+        if (cur.includes(".")) return cur;
+        return cur === "" ? "0." : cur + ".";
+      }
+      if (cur.includes(".")) {
+        const dec = cur.split(".")[1];
+        if (dec.length >= 2) return cur; // máximo 2 decimales
+      }
+      if (cur === "0") return k; // reemplaza el cero inicial
+      if (cur.length >= 12) return cur; // tope de seguridad
+      return cur + k;
+    });
+  };
+
+  const display = amount === "" ? "0" : amount;
+
   return (
     <Modal
       title="Registrar ingreso"
@@ -278,10 +320,18 @@ function IncomeModal({ space, onClose, onSubmit }) {
       }
     >
       <div className="space-y-4">
-        <div>
-          <Label>Monto recibido</Label>
-          <MoneyInput value={amount} onChange={setAmount} autoFocus />
+        {/* monto grande animado */}
+        <div className="flex items-center justify-center py-3 select-none">
+          <span key={bump}
+            className={`gp-pop inline-flex items-start font-bold tabular-nums tracking-tight ${cents ? "text-emerald-600" : "text-slate-300"}`}>
+            <span className="text-2xl mt-2 mr-0.5">$</span>
+            <span className="text-6xl leading-none">{display}</span>
+          </span>
         </div>
+
+        {/* teclado */}
+        <Keypad onKey={pushKey} />
+
         <div className="grid grid-cols-2 gap-3">
           <div>
             <Label>Fecha</Label>
@@ -293,7 +343,7 @@ function IncomeModal({ space, onClose, onSubmit }) {
           </div>
         </div>
 
-        <div className="rounded-xl bg-slate-50 p-3">
+        <div className="rounded-2xl bg-slate-50 p-3">
           <p className="text-xs font-medium text-slate-500 mb-2">Cómo se reparte</p>
           <div className="space-y-2">
             {active.map((b) => {
@@ -312,10 +362,6 @@ function IncomeModal({ space, onClose, onSubmit }) {
             })}
           </div>
         </div>
-        <p className="text-xs text-slate-400 flex items-start gap-1.5">
-          <Sparkles size={13} className="mt-0.5 shrink-0" />
-          Consejo del método: reparte tus ingresos en fechas fijas (por ejemplo el 10 y el 25) en vez de cada vez que entra dinero.
-        </p>
       </div>
     </Modal>
   );
@@ -1426,7 +1472,7 @@ export default function App({ cloud, onLogout }) {
                 </button>
               )}
             </div>
-            <div className="flex gap-3 overflow-x-auto pb-2 -mx-1 px-1 snap-x">
+            <div className="flex gap-3 overflow-x-auto pt-2 pb-3 -mx-1 px-1.5 snap-x scroll-pl-1.5">
               {state.spaces.map((s, i) => {
                 const on = s.id === state.activeSpaceId;
                 const col = spaceColor(s, i);

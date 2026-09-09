@@ -5,14 +5,21 @@
     <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
     <title>La Ganancia es Primero</title>
     <meta name="description" content="Reparte tus ingresos antes de gastar. Finanzas por espacios para tus negocios y lo personal." />
-    <meta name="theme-color" content="#0f766e" />
+    <meta name="theme-color" content="#059669" />
     <link rel="manifest" href="/manifest.webmanifest" />
     <link rel="apple-touch-icon" href="/icon-192.png" />
     <meta name="apple-mobile-web-app-capable" content="yes" />
     <meta name="apple-mobile-web-app-status-bar-style" content="default" />
     <meta name="apple-mobile-web-app-title" content="Ganancia" />
     <script src="https://cdn.tailwindcss.com"></script>
-    <style> html, body, #root { height: 100%; } body { margin: 0; background: #f1f5f9; } </style>
+    <style>
+      html, body, #root { height: 100%; }
+      body { margin: 0; background: #f1f5f9; }
+      /* animación tipo calculadora (Cash App) */
+      @keyframes gp-pop { 0% { transform: scale(1); } 45% { transform: scale(1.14); } 100% { transform: scale(1); } }
+      .gp-pop { animation: gp-pop 0.18s cubic-bezier(0.34, 1.56, 0.64, 1); }
+      @media (prefers-reduced-motion: reduce) { .gp-pop { animation: none; } }
+    </style>
   </head>
   <body>
     <div id="root"></div>
