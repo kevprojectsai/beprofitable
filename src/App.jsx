@@ -869,11 +869,12 @@ function NewSpaceModal({ onClose, onCreate, suggestedColor = "teal" }) {
   );
 }
 
-function SpaceSettingsModal({ space, onClose, onSave, onDelete }) {
+function SpaceSettingsModal({ space, defaultColor = "teal", onClose, onSave, onDelete }) {
+  const effectiveColor = space.color || defaultColor;
   const [name, setName] = useState(space.name);
-  const [color, setColor] = useState(space.color || "teal");
+  const [color, setColor] = useState(effectiveColor);
   const [confirm, setConfirm] = useState(false);
-  const changed = (name.trim() && name !== space.name) || color !== (space.color || "teal");
+  const changed = (name.trim() && name !== space.name) || color !== effectiveColor;
   return (
     <Modal title="Ajustes del espacio" onClose={onClose}
       footer={
@@ -1811,7 +1812,9 @@ export default function App({ cloud, onLogout }) {
           onSave={(buckets) => { updateSpace(space.id, (s) => ({ ...s, buckets })); setModal(null); }} />
       )}
       {space && modal === "spaceSettings" && (
-        <SpaceSettingsModal space={space} onClose={() => setModal(null)}
+        <SpaceSettingsModal space={space}
+          defaultColor={spaceColor(space, state.spaces.findIndex((s) => s.id === space.id))}
+          onClose={() => setModal(null)}
           onSave={({ name, color }) => { updateSpace(space.id, (s) => ({ ...s, name, color })); setModal(null); }}
           onDelete={deleteSpace} />
       )}
