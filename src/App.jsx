@@ -4,6 +4,7 @@ import {
   TrendingUp, PiggyBank, Trash2, Check, ChevronRight, Sparkles, Wallet,
   GripVertical, ChevronUp, ChevronDown, ArrowUpDown,
   Download, Upload, Copy, DatabaseBackup, AlertTriangle, LogOut, BookOpen, UserCog,
+  Mail, Lock,
 } from "lucide-react";
 import AdviceLibrary from "./AdviceLibrary.jsx";
 
@@ -796,26 +797,147 @@ function BackupModal({ state, onClose, onImport, startTab = "export" }) {
   );
 }
 
-/* ---------- profile (name) ---------- */
+/* ---------- account (perfil, correo, contraseña, preferencias) ---------- */
 
-function ProfileModal({ current, onClose, onSave }) {
-  const [name, setName] = useState(current);
-  const [busy, setBusy] = useState(false);
+function AccountSection({ title, desc, children }) {
   return (
-    <Modal title="Mi nombre" subtitle="Así te saluda la app." onClose={onClose}
-      footer={
-        <>
-          <button className={btnGhost + " flex-1"} onClick={onClose}>Cancelar</button>
-          <button className={btnPrimary + " flex-1"} disabled={!name.trim() || busy}
-            onClick={async () => { setBusy(true); await onSave(name.trim()); setBusy(false); }}>
-            Guardar
-          </button>
-        </>
-      }
-    >
-      <Label>Nombre</Label>
-      <input autoFocus value={name} onChange={(e) => setName(e.target.value)}
-        placeholder="Tu nombre" className={inputCls} />
+    <div className="rounded-xl border border-slate-100 bg-slate-50/60 p-4">
+      <p className="text-sm font-semibold text-slate-800">{title}</p>
+      {desc && <p className="text-xs text-slate-500 mt-0.5 mb-3">{desc}</p>}
+      {children}
+    </div>
+  );
+}
+
+function Feedback({ err, ok }) {
+  if (err) return <p className="text-xs text-rose-600 mt-2">{err}</p>;
+  if (ok) return <p className="text-xs text-teal-700 mt-2">{ok}</p>;
+  return null;
+}
+
+function AccountModal({ cloud, onClose }) {
+  // perfil
+  const [name, setName] = useState(cloud?.firstName || "");
+  const [apellido, setApellido] = useState(cloud?.apellido || "");
+  const [pBusy, setPBusy] = useState(false);
+  const [pErr, setPErr] = useState(""); const [pOk, setPOk] = useState("");
+  // correo
+  const [email, setEmail] = useState(cloud?.email || "");
+  const [eBusy, setEBusy] = useState(false);
+  const [eErr, setEErr] = useState(""); const [eOk, setEOk] = useState("");
+  // contraseña
+  const [pw1, setPw1] = useState(""); const [pw2, setPw2] = useState("");
+  const [wBusy, setWBusy] = useState(false);
+  const [wErr, setWErr] = useState(""); const [wOk, setWOk] = useState("");
+
+  const profileChanged =
+    name.trim() !== (cloud?.firstName || "") || apellido.trim() !== (cloud?.apellido || "");
+
+  const saveProfile = async () => {
+    setPErr(""); setPOk(""); setPBusy(true);
+    try {
+      await cloud.updateProfile({ name: name.trim(), apellido: apellido.trim() });
+      setPOk("Perfil actualizado.");
+    } catch (e) { setPErr((e && e.message) || "No se pudo guardar."); }
+    finally { setPBusy(false); }
+  };
+
+  const saveEmail = async () => {
+    setEErr(""); setEOk("");
+    const v = email.trim();
+    if (!v.includes("@")) { setEErr("Escribe un correo válido."); return; }
+    if (v === (cloud?.email || "")) { setEErr("Ese ya es tu correo actual."); return; }
+    setEBusy(true);
+    try {
+      await cloud.changeEmail(v);
+      setEOk("Te enviamos un correo de confirmación a la nueva dirección. El cambio se aplica al confirmarlo.");
+    } catch (e) { setEErr((e && e.message) || "No se pudo actualizar el correo."); }
+    finally { setEBusy(false); }
+  };
+
+  const savePassword = async () => {
+    setWErr(""); setWOk("");
+    if (pw1.length < 6) { setWErr("La contraseña debe tener al menos 6 caracteres."); return; }
+    if (pw1 !== pw2) { setWErr("Las contraseñas no coinciden."); return; }
+    setWBusy(true);
+    try {
+      await cloud.changePassword(pw1);
+      setPw1(""); setPw2("");
+      setWOk("Contraseña actualizada.");
+    } catch (e) { setWErr((e && e.message) || "No se pudo cambiar la contraseña."); }
+    finally { setWBusy(false); }
+  };
+
+  return (
+    <Modal title="Mi cuenta" subtitle="Perfil, correo, contraseña y preferencias." onClose={onClose}
+      footer={<button className={btnGhost + " w-full"} onClick={onClose}>Cerrar</button>}>
+      <div className="space-y-4">
+        {/* Perfil */}
+        <AccountSection title="Perfil" desc="Tu nombre y apellido.">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            <div>
+              <Label>Nombre</Label>
+              <input value={name} onChange={(e) => setName(e.target.value)}
+                placeholder="Tu nombre" className={inputCls} />
+            </div>
+            <div>
+              <Label>Apellido</Label>
+              <input value={apellido} onChange={(e) => setApellido(e.target.value)}
+                placeholder="Tu apellido" className={inputCls} />
+            </div>
+          </div>
+          <div className="mt-3 flex justify-end">
+            <button className={btnPrimary} disabled={!name.trim() || !profileChanged || pBusy}
+              onClick={saveProfile}>
+              <UserCog size={15} /> {pBusy ? "Guardando…" : "Guardar perfil"}
+            </button>
+          </div>
+          <Feedback err={pErr} ok={pOk} />
+        </AccountSection>
+
+        {/* Correo */}
+        <AccountSection title="Correo electrónico" desc="Es el correo con el que inicias sesión.">
+          <Label>Correo</Label>
+          <input type="email" value={email} onChange={(e) => setEmail(e.target.value)}
+            placeholder="tu@correo.com" className={inputCls} />
+          <div className="mt-3 flex justify-end">
+            <button className={btnPrimary} disabled={eBusy || !email.trim()} onClick={saveEmail}>
+              <Mail size={15} /> {eBusy ? "Enviando…" : "Actualizar correo"}
+            </button>
+          </div>
+          <Feedback err={eErr} ok={eOk} />
+        </AccountSection>
+
+        {/* Contraseña */}
+        <AccountSection title="Contraseña" desc="Cambia tu contraseña de acceso.">
+          <div className="space-y-3">
+            <div>
+              <Label>Nueva contraseña</Label>
+              <input type="password" value={pw1} onChange={(e) => setPw1(e.target.value)}
+                placeholder="mínimo 6 caracteres" className={inputCls} />
+            </div>
+            <div>
+              <Label>Repetir contraseña</Label>
+              <input type="password" value={pw2} onChange={(e) => setPw2(e.target.value)}
+                placeholder="repite la contraseña" className={inputCls}
+                onKeyDown={(e) => e.key === "Enter" && savePassword()} />
+            </div>
+          </div>
+          <div className="mt-3 flex justify-end">
+            <button className={btnPrimary} disabled={wBusy || !pw1 || !pw2} onClick={savePassword}>
+              <Lock size={15} /> {wBusy ? "Guardando…" : "Cambiar contraseña"}
+            </button>
+          </div>
+          <Feedback err={wErr} ok={wOk} />
+        </AccountSection>
+
+        {/* Preferencias (base para el futuro) */}
+        <AccountSection title="Preferencias del sistema" desc="Moneda, idioma, notificaciones y más.">
+          <p className="text-xs text-slate-400">
+            Próximamente. Aquí irás agregando las configuraciones del sistema y tus preferencias.
+          </p>
+        </AccountSection>
+      </div>
     </Modal>
   );
 }
@@ -1137,9 +1259,9 @@ export default function App({ cloud, onLogout }) {
                           {cloud?.email && (
                             <p className="px-3.5 py-1 text-xs text-slate-400 truncate">{cloud.email}</p>
                           )}
-                          <button onClick={() => { setMenuOpen(false); setModal("profile"); }}
+                          <button onClick={() => { setMenuOpen(false); setModal("account"); }}
                             className="w-full text-left px-3.5 py-2 text-sm text-slate-700 hover:bg-slate-50 flex items-center gap-2">
-                            <UserCog size={15} /> Mi nombre
+                            <UserCog size={15} /> Mi cuenta
                           </button>
                           <button onClick={() => { setMenuOpen(false); onLogout && onLogout(); }}
                             className="w-full text-left px-3.5 py-2 text-sm text-rose-600 hover:bg-rose-50 flex items-center gap-2">
@@ -1266,9 +1388,8 @@ export default function App({ cloud, onLogout }) {
 
       {/* modals */}
       {modal === "advice" && <AdviceLibrary onClose={() => setModal(null)} />}
-      {modal === "profile" && (
-        <ProfileModal current={cloud?.name || ""} onClose={() => setModal(null)}
-          onSave={async (name) => { if (cloud?.setName) await cloud.setName(name); setModal(null); }} />
+      {modal === "account" && (
+        <AccountModal cloud={cloud} onClose={() => setModal(null)} />
       )}
       {modal === "newSpace" && <NewSpaceModal onClose={() => setModal(null)} onCreate={createSpace} />}
       {modal === "reorder" && (

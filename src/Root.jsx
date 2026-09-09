@@ -158,14 +158,19 @@ export default function Root() {
 
   const uid = session.user.id;
   const meta = session.user.user_metadata || {};
+  const firstName = (meta.name || "").trim();
+  const apellido = (meta.apellido || "").trim();
   const emailName = (session.user.email || "").split("@")[0].replace(/[._-]+/g, " ");
-  const displayName = (meta.name && meta.name.trim())
-    ? meta.name.trim()
+  const fullName = [firstName, apellido].filter(Boolean).join(" ").trim();
+  const displayName = fullName
+    ? fullName
     : (emailName ? emailName.charAt(0).toUpperCase() + emailName.slice(1) : "");
   const cloud = {
     uid,
     email: session.user.email,
     name: displayName,
+    firstName,
+    apellido,
     load: () => loadState(uid),
     save: (data) => saveState(uid, data),
     loadCache: () => loadCache(uid),
@@ -173,7 +178,25 @@ export default function Root() {
     setName: async (name) => {
       const c = getClient();
       const { data, error } = await c.auth.updateUser({ data: { name } });
-      if (!error && data && data.user) setSession((s) => (s ? { ...s, user: data.user } : s));
+      if (error) throw error;
+      if (data && data.user) setSession((s) => (s ? { ...s, user: data.user } : s));
+    },
+    updateProfile: async ({ name, apellido }) => {
+      const c = getClient();
+      const { data, error } = await c.auth.updateUser({ data: { name, apellido } });
+      if (error) throw error;
+      if (data && data.user) setSession((s) => (s ? { ...s, user: data.user } : s));
+    },
+    changeEmail: async (newEmail) => {
+      const c = getClient();
+      const { data, error } = await c.auth.updateUser({ email: newEmail.trim() });
+      if (error) throw error;
+      return data;
+    },
+    changePassword: async (newPassword) => {
+      const c = getClient();
+      const { error } = await c.auth.updateUser({ password: newPassword });
+      if (error) throw error;
     },
   };
   const onLogout = async () => {
