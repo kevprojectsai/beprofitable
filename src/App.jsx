@@ -570,7 +570,7 @@ function EditBucketsModal({ space, balances, onClose, onSave }) {
           );
         })}
 
-        <button onClick={addRow} className="flex items-center gap-1.5 text-sm font-medium text-teal-700 hover:text-teal-800 pt-1">
+        <button onClick={addRow} className="flex items-center gap-1.5 text-sm font-medium text-emerald-700 hover:text-emerald-800 pt-1">
           <Plus size={16} /> Agregar cuenta
         </button>
 
@@ -588,9 +588,163 @@ function EditBucketsModal({ space, balances, onClose, onSave }) {
               <div key={r.id} className="flex items-center gap-2 py-1">
                 <span className={`h-2.5 w-2.5 rounded-full ${colorOf(r.color).dot} opacity-50`} />
                 <span className="text-sm text-slate-500 flex-1">{r.name}</span>
-                <button onClick={() => restore(r)} className="text-xs font-medium text-teal-700 hover:text-teal-800">Restaurar</button>
+                <button onClick={() => restore(r)} className="text-xs font-medium text-emerald-700 hover:text-emerald-800">Restaurar</button>
               </div>
             ))}
+          </div>
+        )}
+      </div>
+    </Modal>
+  );
+}
+
+/* ---------- bucket detail (historial + color por cuenta) ---------- */
+
+const bname = (space, id) => space.buckets.find((b) => b.id === id)?.name || "—";
+
+function bucketHistory(space, bucketId) {
+  const rows = [];
+  space.txns.forEach((t) => {
+    if (t.type === "income") {
+      const a = t.allocations.find((x) => x.bucketId === bucketId);
+      if (a && a.amount) rows.push({ id: t.id, date: t.date, kind: "in", label: "Reparto de ingreso", detail: t.note || "Ingreso distribuido", delta: a.amount });
+    } else if (t.type === "expense") {
+      if (t.bucketId === bucketId) rows.push({ id: t.id, date: t.date, kind: "out", label: t.note || "Gasto", detail: "Gasto", delta: -t.amount });
+    } else if (t.type === "transfer") {
+      if (t.toId === bucketId) rows.push({ id: t.id, date: t.date, kind: "in", label: "Transferencia recibida", detail: "Desde " + bname(space, t.fromId), delta: t.amount });
+      if (t.fromId === bucketId) rows.push({ id: t.id, date: t.date, kind: "out", label: "Transferencia enviada", detail: "Hacia " + bname(space, t.toId), delta: -t.amount });
+    } else if (t.type === "adjust") {
+      if (t.bucketId === bucketId) rows.push({ id: t.id, date: t.date, kind: t.amount < 0 ? "out" : "in", label: t.note || "Ajuste", detail: "Ajuste de saldo", delta: t.amount });
+    }
+  });
+  return rows;
+}
+
+function BucketDetailModal({ space, bucket, balances, onClose, onChangeColor, onOpenTxn }) {
+  const c = colorOf(bucket.color);
+  const bal = balances[bucket.id] || 0;
+  const hist = bucketHistory(space, bucket.id);
+  return (
+    <Modal title={bucket.name} subtitle={`${bucket.percent}% de cada ingreso`} onClose={onClose} maxW="max-w-lg"
+      footer={<button className={btnGhost + " w-full"} onClick={onClose}>Cerrar</button>}>
+      <div className="space-y-4">
+        <div className={`rounded-3xl p-4 ${c.soft}`}>
+          <div className="flex items-center justify-between">
+            <div className={`h-10 w-10 rounded-2xl bg-gradient-to-br ${gradOf(bucket.color)} flex items-center justify-center text-white shadow-sm`}>
+              {bucket.profit ? <PiggyBank size={18} /> : <Wallet size={18} />}
+            </div>
+            <span className="text-xs font-semibold text-slate-500 bg-white/70 rounded-full px-2 py-0.5 tabular-nums">{bucket.percent}%</span>
+          </div>
+          <p className="text-xs text-slate-500 mt-3">Saldo actual</p>
+          <p className={`text-2xl font-bold tabular-nums ${bal < 0 ? "text-rose-600" : "text-slate-900"}`}>{fmt(bal, space.currency)}</p>
+        </div>
+
+        <div>
+          <Label>Color de la cuenta</Label>
+          <ColorPicker value={bucket.color} onChange={onChangeColor} />
+        </div>
+
+        <div>
+          <p className="text-sm font-semibold text-slate-700 mb-2">Historial de esta cuenta</p>
+          {hist.length === 0 ? (
+            <div className="rounded-2xl border border-dashed border-slate-200 p-5 text-center">
+              <p className="text-sm text-slate-500">Aún no hay movimientos en esta cuenta.</p>
+            </div>
+          ) : (
+            <div className="rounded-2xl border border-slate-100 divide-y divide-slate-50 overflow-hidden">
+              {hist.map((h, idx) => (
+                <button key={h.id + "-" + idx} onClick={() => onOpenTxn(h.id)}
+                  className="w-full text-left flex items-center gap-3 px-3.5 py-2.5 hover:bg-slate-50">
+                  <div className={`h-8 w-8 rounded-full flex items-center justify-center shrink-0 ${h.kind === "in" ? "bg-emerald-50 text-emerald-600" : "bg-rose-50 text-rose-600"}`}>
+                    {h.kind === "in" ? <TrendingUp size={15} /> : <Minus size={15} />}
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm font-medium text-slate-800 truncate">{h.label}</p>
+                    <p className="text-xs text-slate-400 truncate">{fmtDate(h.date)} · {h.detail}</p>
+                  </div>
+                  <span className={`text-sm font-semibold tabular-nums ${h.delta < 0 ? "text-rose-600" : "text-emerald-600"}`}>
+                    {h.delta < 0 ? "−" : "+"}{fmt(Math.abs(h.delta), space.currency)}
+                  </span>
+                </button>
+              ))}
+            </div>
+          )}
+        </div>
+      </div>
+    </Modal>
+  );
+}
+
+/* ---------- movement detail (cómo se distribuyó) ---------- */
+
+function TxnDetailModal({ space, txn, onClose }) {
+  const cur = space.currency;
+  let title, headAmount, headColor;
+  if (txn.type === "income") {
+    title = "Ingreso repartido"; headAmount = "+" + fmt(txn.amount, cur); headColor = "text-emerald-600";
+  } else if (txn.type === "expense") {
+    title = txn.note || "Gasto"; headAmount = "−" + fmt(txn.amount, cur); headColor = "text-slate-800";
+  } else if (txn.type === "transfer") {
+    title = "Transferencia"; headAmount = fmt(txn.amount, cur); headColor = "text-slate-800";
+  } else {
+    title = txn.note || "Ajuste"; headAmount = (txn.amount < 0 ? "−" : "+") + fmt(Math.abs(txn.amount), cur);
+    headColor = txn.amount < 0 ? "text-rose-600" : "text-slate-800";
+  }
+
+  return (
+    <Modal title={title} subtitle={fmtDate(txn.date)} onClose={onClose} maxW="max-w-lg"
+      footer={<button className={btnGhost + " w-full"} onClick={onClose}>Cerrar</button>}>
+      <div className="space-y-4">
+        <div className="rounded-3xl bg-slate-50 p-4 text-center">
+          <p className="text-xs text-slate-500">Monto</p>
+          <p className={`text-3xl font-bold tabular-nums ${headColor}`}>{headAmount}</p>
+          {txn.note && txn.type !== "expense" && <p className="text-sm text-slate-500 mt-1">{txn.note}</p>}
+        </div>
+
+        {txn.type === "income" && (
+          <div>
+            <p className="text-sm font-semibold text-slate-700 mb-1">Cómo se distribuyó</p>
+            <p className="text-xs text-slate-400 mb-3">Reparto aplicado el {fmtDate(txn.date)} (con los porcentajes de esa fecha).</p>
+            <div className="space-y-2.5">
+              {txn.allocations.map((a) => {
+                const b = space.buckets.find((x) => x.id === a.bucketId);
+                const c = colorOf(b?.color);
+                const pct = txn.amount > 0 ? (a.amount / txn.amount) * 100 : 0;
+                return (
+                  <div key={a.bucketId} className="rounded-2xl bg-white border border-slate-100 p-3">
+                    <div className="flex items-center gap-2">
+                      <span className={`h-2.5 w-2.5 rounded-full ${c.dot}`} />
+                      <span className="text-sm font-medium text-slate-700 flex-1 truncate">{b ? b.name : "Cuenta eliminada"}</span>
+                      <span className="text-xs font-semibold text-slate-400 tabular-nums">{pct.toFixed(1)}%</span>
+                      <span className="text-sm font-semibold text-slate-900 tabular-nums ml-2">{fmt(a.amount, cur)}</span>
+                    </div>
+                    <div className="mt-2 h-1.5 rounded-full bg-slate-100 overflow-hidden">
+                      <div className={`h-full rounded-full ${c.bar}`} style={{ width: `${Math.min(100, pct)}%` }} />
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        )}
+
+        {txn.type === "expense" && (
+          <div className="rounded-2xl bg-white border border-slate-100 p-3">
+            <p className="text-xs text-slate-400">Cuenta de origen</p>
+            <p className="text-sm font-medium text-slate-800">{bname(space, txn.bucketId)}</p>
+          </div>
+        )}
+        {txn.type === "transfer" && (
+          <div className="rounded-2xl bg-white border border-slate-100 p-3 flex items-center justify-between gap-2">
+            <div><p className="text-xs text-slate-400">Desde</p><p className="text-sm font-medium text-slate-800">{bname(space, txn.fromId)}</p></div>
+            <ArrowLeftRight size={16} className="text-slate-400 shrink-0" />
+            <div className="text-right"><p className="text-xs text-slate-400">Hacia</p><p className="text-sm font-medium text-slate-800">{bname(space, txn.toId)}</p></div>
+          </div>
+        )}
+        {txn.type === "adjust" && (
+          <div className="rounded-2xl bg-white border border-slate-100 p-3">
+            <p className="text-xs text-slate-400">Cuenta ajustada</p>
+            <p className="text-sm font-medium text-slate-800">{bname(space, txn.bucketId)}</p>
           </div>
         )}
       </div>
@@ -1106,6 +1260,8 @@ export default function App({ cloud, onLogout }) {
   const [loaded, setLoaded] = useState(false);
   const [saveStatus, setSaveStatus] = useState("idle");
   const [modal, setModal] = useState(null);
+  const [bucketDetailId, setBucketDetailId] = useState(null);
+  const [txnDetailId, setTxnDetailId] = useState(null);
   const [menuOpen, setMenuOpen] = useState(false);
   const [dragIndex, setDragIndex] = useState(null);
   const firstSave = useRef(true);
@@ -1429,8 +1585,8 @@ export default function App({ cloud, onLogout }) {
                 const bal = balances[b.id] || 0;
                 const share = totalBalance > 0 ? Math.max(0, (bal / totalBalance) * 100) : 0;
                 return (
-                  <div key={b.id}
-                    className={`rounded-3xl p-4 ${c.soft} ${b.profit ? "ring-1 ring-amber-200" : ""}`}>
+                  <button key={b.id} onClick={() => setBucketDetailId(b.id)}
+                    className={`text-left rounded-3xl p-4 ${c.soft} ${b.profit ? "ring-1 ring-amber-200" : ""} transition-transform hover:scale-[1.02] focus:outline-none focus:ring-2 focus:ring-slate-300`}>
                     <div className="flex items-center justify-between mb-3">
                       <div className={`h-9 w-9 rounded-2xl bg-gradient-to-br ${gradOf(b.color)} flex items-center justify-center text-white shadow-sm`}>
                         {b.profit ? <PiggyBank size={16} /> : <Wallet size={16} />}
@@ -1445,7 +1601,7 @@ export default function App({ cloud, onLogout }) {
                       <div className={`h-full rounded-full ${c.bar} transition-all duration-500 motion-reduce:transition-none`}
                         style={{ width: `${Math.min(100, share)}%` }} />
                     </div>
-                  </div>
+                  </button>
                 );
               })}
             </div>
@@ -1479,17 +1635,20 @@ export default function App({ cloud, onLogout }) {
                       {t.amount < 0 ? "−" : "+"}{fmt(Math.abs(t.amount), space.currency)}</span>;
                   }
                   return (
-                    <div key={t.id} className="group flex items-center gap-3 px-4 py-3">
-                      <div className={`h-9 w-9 rounded-full flex items-center justify-center shrink-0 ${tint}`}>{icon}</div>
-                      <div className="flex-1 min-w-0">
-                        <p className="text-sm font-medium text-slate-800 truncate">{title}</p>
-                        <p className="text-xs text-slate-400 truncate">{fmtDate(t.date)} · {detail}</p>
-                      </div>
-                      <div className="text-sm font-semibold tabular-nums">{amt}</div>
+                    <div key={t.id} className="group flex items-center gap-2 px-4 py-3 hover:bg-slate-50/60">
+                      <button onClick={() => setTxnDetailId(t.id)}
+                        className="flex-1 flex items-center gap-3 min-w-0 text-left">
+                        <div className={`h-9 w-9 rounded-full flex items-center justify-center shrink-0 ${tint}`}>{icon}</div>
+                        <div className="flex-1 min-w-0">
+                          <p className="text-sm font-medium text-slate-800 truncate">{title}</p>
+                          <p className="text-xs text-slate-400 truncate">{fmtDate(t.date)} · {detail}{t.type === "income" ? " · ver reparto" : ""}</p>
+                        </div>
+                        <div className="text-sm font-semibold tabular-nums shrink-0">{amt}</div>
+                      </button>
                       <button
                         onClick={() => updateSpace(space.id, (s) => ({ ...s, txns: s.txns.filter((x) => x.id !== t.id) }))}
                         aria-label="Eliminar movimiento"
-                        className="p-1.5 rounded-lg text-slate-300 hover:text-rose-600 hover:bg-rose-50 opacity-0 group-hover:opacity-100 focus:opacity-100">
+                        className="p-1.5 rounded-lg text-slate-300 hover:text-rose-600 hover:bg-rose-50 opacity-0 group-hover:opacity-100 focus:opacity-100 shrink-0">
                         <Trash2 size={15} />
                       </button>
                     </div>
@@ -1502,6 +1661,23 @@ export default function App({ cloud, onLogout }) {
       </div>
 
       {/* modals */}
+      {space && bucketDetailId && (() => {
+        const b = space.buckets.find((x) => x.id === bucketDetailId);
+        if (!b) return null;
+        return (
+          <BucketDetailModal
+            space={space} bucket={b} balances={balances}
+            onClose={() => setBucketDetailId(null)}
+            onChangeColor={(color) => updateSpace(space.id, (s) => ({ ...s, buckets: s.buckets.map((x) => (x.id === b.id ? { ...x, color } : x)) }))}
+            onOpenTxn={(id) => { setBucketDetailId(null); setTxnDetailId(id); }}
+          />
+        );
+      })()}
+      {space && txnDetailId && (() => {
+        const t = space.txns.find((x) => x.id === txnDetailId);
+        if (!t) return null;
+        return <TxnDetailModal space={space} txn={t} onClose={() => setTxnDetailId(null)} />;
+      })()}
       {modal === "advice" && <AdviceLibrary onClose={() => setModal(null)} />}
       {modal === "account" && (
         <AccountModal cloud={cloud} onClose={() => setModal(null)} />
