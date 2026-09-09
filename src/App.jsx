@@ -88,6 +88,41 @@ const COLORS = {
 const PALETTE = ["teal", "amber", "sky", "violet", "rose", "lime", "orange", "cyan"];
 const colorOf = (c) => COLORS[c] || COLORS.teal;
 
+/* gradientes para las tarjetas de espacios (estilo banca en línea) */
+const CARD_GRAD = {
+  teal:   "from-teal-500 to-emerald-700",
+  amber:  "from-amber-500 to-orange-600",
+  sky:    "from-sky-500 to-blue-700",
+  violet: "from-violet-500 to-purple-700",
+  rose:   "from-rose-500 to-pink-700",
+  lime:   "from-lime-500 to-green-700",
+  orange: "from-orange-500 to-red-600",
+  cyan:   "from-cyan-500 to-teal-700",
+};
+const gradOf = (c) => CARD_GRAD[c] || CARD_GRAD.teal;
+const spaceColor = (sp, i) => (sp && sp.color) || PALETTE[i % PALETTE.length];
+const spaceTotalCents = (sp) =>
+  Object.values(computeBalances(sp)).reduce((a, b) => a + b, 0);
+
+/* selector de color reutilizable */
+function ColorPicker({ value, onChange }) {
+  return (
+    <div className="flex flex-wrap gap-2">
+      {PALETTE.map((c) => (
+        <button
+          key={c}
+          type="button"
+          onClick={() => onChange(c)}
+          aria-label={`Color ${c}`}
+          className={`h-8 w-8 rounded-full bg-gradient-to-br ${gradOf(c)} transition-transform ${
+            value === c ? "ring-2 ring-offset-2 ring-slate-900 scale-110" : "hover:scale-105"
+          }`}
+        />
+      ))}
+    </div>
+  );
+}
+
 /* ---------- templates ---------- */
 
 const TEMPLATES = {
@@ -565,10 +600,11 @@ function EditBucketsModal({ space, balances, onClose, onSave }) {
 
 /* ---------- new space ---------- */
 
-function NewSpaceModal({ onClose, onCreate }) {
+function NewSpaceModal({ onClose, onCreate, suggestedColor = "teal" }) {
   const [name, setName] = useState("");
   const [tpl, setTpl] = useState("negocio");
   const [currency, setCurrency] = useState("USD");
+  const [color, setColor] = useState(suggestedColor);
   return (
     <Modal
       title="Nuevo espacio"
@@ -578,17 +614,30 @@ function NewSpaceModal({ onClose, onCreate }) {
         <>
           <button className={btnGhost + " flex-1"} onClick={onClose}>Cancelar</button>
           <button className={btnPrimary + " flex-1"} disabled={!name.trim()}
-            onClick={() => onCreate({ name: name.trim(), tpl, currency: currency.trim().toUpperCase() || "USD" })}>
+            onClick={() => onCreate({ name: name.trim(), tpl, currency: currency.trim().toUpperCase() || "USD", color })}>
             Crear espacio
           </button>
         </>
       }
     >
       <div className="space-y-4">
+        {/* vista previa de la tarjeta */}
+        <div className={`relative rounded-2xl p-4 text-white bg-gradient-to-br ${gradOf(color)} shadow-md overflow-hidden`}>
+          <div className="absolute -right-6 -top-8 h-24 w-24 rounded-full bg-white/10" />
+          <span className="relative inline-flex items-center gap-1 rounded-full bg-white/20 px-2 py-0.5 text-[11px] font-medium capitalize">
+            {tpl === "personal" ? <PiggyBank size={12} /> : <Wallet size={12} />} {tpl === "personal" ? "personal" : "negocio"}
+          </span>
+          <p className="relative text-2xl font-bold tabular-nums mt-6 leading-none">{fmt(0, (currency || "USD").toUpperCase())}</p>
+          <p className="relative text-sm font-medium mt-3 truncate">{name.trim() || "Nombre del espacio"}</p>
+        </div>
         <div>
           <Label>Nombre</Label>
           <input autoFocus value={name} onChange={(e) => setName(e.target.value)}
             placeholder="Akiles, Apollo Dev AI, Personal…" className={inputCls} />
+        </div>
+        <div>
+          <Label>Color</Label>
+          <ColorPicker value={color} onChange={setColor} />
         </div>
         <div>
           <Label>Punto de partida</Label>
@@ -614,22 +663,34 @@ function NewSpaceModal({ onClose, onCreate }) {
   );
 }
 
-function SpaceSettingsModal({ space, onClose, onRename, onDelete }) {
+function SpaceSettingsModal({ space, onClose, onSave, onDelete }) {
   const [name, setName] = useState(space.name);
+  const [color, setColor] = useState(space.color || "teal");
   const [confirm, setConfirm] = useState(false);
+  const changed = (name.trim() && name !== space.name) || color !== (space.color || "teal");
   return (
     <Modal title="Ajustes del espacio" onClose={onClose}
       footer={
         <>
           <button className={btnGhost + " flex-1"} onClick={onClose}>Cerrar</button>
-          <button className={btnPrimary + " flex-1"} disabled={!name.trim() || name === space.name}
-            onClick={() => onRename(name.trim())}>Guardar nombre</button>
+          <button className={btnPrimary + " flex-1"} disabled={!name.trim() || !changed}
+            onClick={() => onSave({ name: name.trim(), color })}>Guardar cambios</button>
         </>
       }
     >
       <div className="space-y-4">
+        {/* vista previa */}
+        <div className={`relative rounded-2xl p-4 text-white bg-gradient-to-br ${gradOf(color)} shadow-md overflow-hidden`}>
+          <div className="absolute -right-6 -top-8 h-24 w-24 rounded-full bg-white/10" />
+          <span className="relative inline-flex items-center gap-1 rounded-full bg-white/20 px-2 py-0.5 text-[11px] font-medium capitalize">
+            {space.type === "personal" ? <PiggyBank size={12} /> : <Wallet size={12} />} {space.type}
+          </span>
+          <p className="relative text-sm font-medium mt-6 truncate">{name.trim() || space.name}</p>
+        </div>
         <div><Label>Nombre del espacio</Label>
           <input value={name} onChange={(e) => setName(e.target.value)} className={inputCls} /></div>
+        <div><Label>Color</Label>
+          <ColorPicker value={color} onChange={setColor} /></div>
         <div className="pt-2 border-t border-slate-100">
           {!confirm ? (
             <button onClick={() => setConfirm(true)} className="flex items-center gap-1.5 text-sm font-medium text-rose-600 hover:text-rose-700">
@@ -969,17 +1030,17 @@ function AccountModal({ cloud, onClose }) {
 /* ---------- main app ---------- */
 
 const DEFAULT_SPACES = () => {
-  const mk = (name, type, tpl) => ({
-    id: uid(), name, currency: "USD", type,
+  const mk = (name, type, tpl, color) => ({
+    id: uid(), name, currency: "USD", type, color,
     buckets: makeBuckets(TEMPLATES[tpl].buckets), txns: [], createdAt: todayISO(),
   });
   return [
-    mk("Finanzas Kevin", "personal", "personal"),
-    mk("Akiles Store", "negocio", "negocio"),
-    mk("Akiles Ride", "negocio", "negocio"),
-    mk("Akiles Travel", "negocio", "negocio"),
-    mk("Apollo Dev AI", "negocio", "negocio"),
-    mk("Finanzas Kelly", "personal", "personal"),
+    mk("Finanzas Kevin", "personal", "personal", "teal"),
+    mk("Akiles Store", "negocio", "negocio", "sky"),
+    mk("Akiles Ride", "negocio", "negocio", "violet"),
+    mk("Akiles Travel", "negocio", "negocio", "orange"),
+    mk("Apollo Dev AI", "negocio", "negocio", "rose"),
+    mk("Finanzas Kelly", "personal", "personal", "amber"),
   ];
 };
 
@@ -1113,9 +1174,9 @@ export default function App({ cloud, onLogout }) {
   const pushTxn = (t) =>
     updateSpace(space.id, (s) => ({ ...s, txns: [{ id: uid(), ...t }, ...s.txns] }));
 
-  const createSpace = ({ name, tpl, currency }) => {
+  const createSpace = ({ name, tpl, currency, color }) => {
     const ns = {
-      id: uid(), name, currency,
+      id: uid(), name, currency, color,
       type: tpl === "personal" ? "personal" : "negocio",
       buckets: makeBuckets(TEMPLATES[tpl].buckets),
       txns: [], createdAt: todayISO(),
@@ -1197,34 +1258,54 @@ export default function App({ cloud, onLogout }) {
           </div>
         )}
 
-        {/* space chips */}
+        {/* space cards — estilo banca en línea */}
         {state.spaces.length > 0 && (
-          <div className="flex gap-2 overflow-x-auto pb-1 mb-4 -mx-1 px-1">
-            {state.spaces.map((s, i) => {
-              const on = s.id === state.activeSpaceId;
-              return (
-                <button key={s.id} onClick={() => setState((st) => ({ ...st, activeSpaceId: s.id }))}
-                  draggable
-                  onDragStart={() => setDragIndex(i)}
-                  onDragEnd={() => setDragIndex(null)}
-                  onDragOver={(e) => onChipDragOver(e, i)}
-                  className={`shrink-0 rounded-full px-3.5 py-1.5 text-sm font-medium border transition-colors cursor-grab active:cursor-grabbing ${
-                    on ? "bg-slate-900 text-white border-slate-900" : "bg-white text-slate-600 border-slate-200 hover:border-slate-300"
-                  } ${dragIndex === i ? "opacity-50 ring-2 ring-teal-400" : ""}`}>
-                  {s.name}
+          <div className="mb-5">
+            <div className="flex items-center justify-between mb-2 px-0.5">
+              <h2 className="text-xs font-semibold uppercase tracking-wide text-slate-400">Mis espacios</h2>
+              {state.spaces.length > 1 && (
+                <button onClick={() => setModal("reorder")} title="Reordenar espacios"
+                  className="flex items-center gap-1 rounded-lg px-2 py-1 text-xs font-medium text-slate-500 hover:bg-slate-100">
+                  <ArrowUpDown size={14} /> Reordenar
                 </button>
-              );
-            })}
-            {state.spaces.length > 1 && (
-              <button onClick={() => setModal("reorder")} aria-label="Reordenar espacios" title="Reordenar espacios"
-                className="shrink-0 rounded-full h-8 w-8 flex items-center justify-center text-slate-500 border border-slate-200 hover:bg-slate-50">
-                <ArrowUpDown size={15} />
+              )}
+            </div>
+            <div className="flex gap-3 overflow-x-auto pb-2 -mx-1 px-1 snap-x">
+              {state.spaces.map((s, i) => {
+                const on = s.id === state.activeSpaceId;
+                const col = spaceColor(s, i);
+                const total = spaceTotalCents(s);
+                return (
+                  <button key={s.id}
+                    onClick={() => setState((st) => ({ ...st, activeSpaceId: s.id }))}
+                    draggable
+                    onDragStart={() => setDragIndex(i)}
+                    onDragEnd={() => setDragIndex(null)}
+                    onDragOver={(e) => onChipDragOver(e, i)}
+                    className={`group relative shrink-0 snap-start w-60 sm:w-64 rounded-2xl p-4 text-left text-white bg-gradient-to-br ${gradOf(col)} shadow-md overflow-hidden transition-all cursor-pointer ${
+                      on ? "ring-2 ring-offset-2 ring-slate-900" : "opacity-80 hover:opacity-100"
+                    } ${dragIndex === i ? "opacity-40 scale-95" : ""}`}>
+                    <div className="absolute -right-6 -top-8 h-24 w-24 rounded-full bg-white/10" />
+                    <div className="absolute -right-2 top-10 h-16 w-16 rounded-full bg-white/10" />
+                    <div className="relative flex items-center justify-between">
+                      <span className="inline-flex items-center gap-1 rounded-full bg-white/20 px-2 py-0.5 text-[11px] font-medium capitalize backdrop-blur-sm">
+                        {s.type === "personal" ? <PiggyBank size={12} /> : <Wallet size={12} />} {s.type}
+                      </span>
+                      {on && <span className="text-[11px] font-semibold bg-white/25 rounded-full px-2 py-0.5">Activo</span>}
+                    </div>
+                    <p className="relative text-2xl font-bold tabular-nums mt-6 leading-none">{fmt(total, s.currency)}</p>
+                    <div className="relative flex items-end justify-between mt-3">
+                      <p className="text-sm font-medium truncate pr-2">{s.name}</p>
+                      <span className="text-[11px] font-medium text-white/80 shrink-0">{s.currency}</span>
+                    </div>
+                  </button>
+                );
+              })}
+              <button onClick={() => setModal("newSpace")}
+                className="shrink-0 snap-start w-32 rounded-2xl border-2 border-dashed border-slate-300 text-slate-500 hover:border-teal-400 hover:text-teal-600 flex flex-col items-center justify-center gap-1.5 transition-colors">
+                <Plus size={20} /> <span className="text-xs font-medium">Nuevo espacio</span>
               </button>
-            )}
-            <button onClick={() => setModal("newSpace")}
-              className="shrink-0 rounded-full px-3 py-1.5 text-sm font-medium text-teal-700 border border-dashed border-teal-300 hover:bg-teal-50 flex items-center gap-1">
-              <Plus size={15} /> Espacio
-            </button>
+            </div>
           </div>
         )}
 
@@ -1252,10 +1333,14 @@ export default function App({ cloud, onLogout }) {
         {space && (
           <>
             {/* summary card */}
-            <div className="rounded-2xl bg-white shadow-sm border border-slate-100 p-5 mb-5">
+            <div className="rounded-2xl bg-white shadow-sm border border-slate-100 p-5 mb-5 overflow-hidden">
+              <div className={`h-1 -mx-5 -mt-5 mb-4 bg-gradient-to-r ${gradOf(spaceColor(space, state.spaces.findIndex((s) => s.id === space.id)))}`} />
               <div className="flex items-start justify-between">
                 <div>
                   <div className="flex items-center gap-2">
+                    <span className={`h-2.5 w-2.5 rounded-full bg-gradient-to-br ${gradOf(spaceColor(space, state.spaces.findIndex((s) => s.id === space.id)))}`} />
+                    <span className="text-sm font-semibold text-slate-800 truncate">{space.name}</span>
+                    <span className="text-xs text-slate-300">·</span>
                     <span className="text-xs font-medium text-slate-500 capitalize">{space.type}</span>
                     <span className="text-xs text-slate-300">·</span>
                     <span className="text-xs font-medium text-slate-500">{space.currency}</span>
@@ -1416,7 +1501,10 @@ export default function App({ cloud, onLogout }) {
       {modal === "account" && (
         <AccountModal cloud={cloud} onClose={() => setModal(null)} />
       )}
-      {modal === "newSpace" && <NewSpaceModal onClose={() => setModal(null)} onCreate={createSpace} />}
+      {modal === "newSpace" && (
+        <NewSpaceModal onClose={() => setModal(null)} onCreate={createSpace}
+          suggestedColor={PALETTE[state.spaces.length % PALETTE.length]} />
+      )}
       {modal === "reorder" && (
         <ReorderModal spaces={state.spaces} onClose={() => setModal(null)}
           onSave={(ids) => { reorderSpaces(ids); setModal(null); }} />
@@ -1447,7 +1535,7 @@ export default function App({ cloud, onLogout }) {
       )}
       {space && modal === "spaceSettings" && (
         <SpaceSettingsModal space={space} onClose={() => setModal(null)}
-          onRename={(name) => { updateSpace(space.id, (s) => ({ ...s, name })); setModal(null); }}
+          onSave={({ name, color }) => { updateSpace(space.id, (s) => ({ ...s, name, color })); setModal(null); }}
           onDelete={deleteSpace} />
       )}
     </div>
