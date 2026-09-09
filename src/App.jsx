@@ -4,7 +4,7 @@ import {
   TrendingUp, PiggyBank, Trash2, Check, ChevronRight, Sparkles, Wallet,
   GripVertical, ChevronUp, ChevronDown, ArrowUpDown,
   Download, Upload, Copy, DatabaseBackup, AlertTriangle, LogOut, BookOpen, UserCog,
-  Mail, Lock, Eye, EyeOff, Delete,
+  Mail, Lock, Eye, EyeOff, Delete, Palette,
 } from "lucide-react";
 import AdviceLibrary from "./AdviceLibrary.jsx";
 
@@ -1336,6 +1336,20 @@ export default function App({ cloud, onLogout }) {
     })();
   }, []);
 
+  const stateRef = useRef(state);
+  useEffect(() => { stateRef.current = state; }, [state]);
+
+  // guarda de inmediato (para cambios estructurales como reordenar/crear/eliminar espacios)
+  const persistNow = (data) => {
+    const d = data || stateRef.current;
+    if (saveTimer.current) { clearTimeout(saveTimer.current); saveTimer.current = null; }
+    cloud.saveCache(d);
+    setSaveStatus("saving");
+    cloud.save(d)
+      .then(() => { setSaveStatus("saved"); setStorageOk(true); })
+      .catch(() => { setSaveStatus("error"); setStorageOk(false); });
+  };
+
   useEffect(() => {
     if (!loaded) return;
     if (firstSave.current) { firstSave.current = false; return; }
@@ -1347,6 +1361,23 @@ export default function App({ cloud, onLogout }) {
       catch (_) { setSaveStatus("error"); setStorageOk(false); }
     }, 700);
   }, [state, loaded]);
+
+  // vacía el guardado pendiente al cerrar o mandar la app a segundo plano
+  useEffect(() => {
+    const flush = () => {
+      if (document.visibilityState === "hidden" && loaded && !firstSave.current) {
+        if (saveTimer.current) { clearTimeout(saveTimer.current); saveTimer.current = null; }
+        cloud.saveCache(stateRef.current);
+        cloud.save(stateRef.current).catch(() => {});
+      }
+    };
+    document.addEventListener("visibilitychange", flush);
+    window.addEventListener("pagehide", flush);
+    return () => {
+      document.removeEventListener("visibilitychange", flush);
+      window.removeEventListener("pagehide", flush);
+    };
+  }, [cloud, loaded]);
 
   const importData = (data) => {
     setState({
@@ -1362,8 +1393,12 @@ export default function App({ cloud, onLogout }) {
   const space = state.spaces.find((s) => s.id === state.activeSpaceId) || null;
   const balances = useMemo(() => (space ? computeBalances(space) : {}), [space]);
 
-  const reorderSpaces = (ids) =>
-    setState((st) => ({ ...st, spaces: ids.map((id) => st.spaces.find((s) => s.id === id)).filter(Boolean) }));
+  const reorderSpaces = (ids) => {
+    const spaces = ids.map((id) => state.spaces.find((s) => s.id === id)).filter(Boolean);
+    const next = { ...state, spaces };
+    setState(next);
+    persistNow(next); // guarda el orden de inmediato (no depende del debounce)
+  };
 
   const onChipDragOver = (e, i) => {
     e.preventDefault();
@@ -1483,14 +1518,17 @@ export default function App({ cloud, onLogout }) {
                 const on = s.id === state.activeSpaceId;
                 const col = spaceColor(s, i);
                 const total = spaceTotalCents(s);
+                const selectThis = () => setState((st) => ({ ...st, activeSpaceId: s.id }));
                 return (
-                  <button key={s.id}
-                    onClick={() => setState((st) => ({ ...st, activeSpaceId: s.id }))}
+                  <div key={s.id}
+                    role="button" tabIndex={0}
+                    onClick={selectThis}
+                    onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); selectThis(); } }}
                     draggable
                     onDragStart={() => setDragIndex(i)}
-                    onDragEnd={() => setDragIndex(null)}
+                    onDragEnd={() => { setDragIndex(null); persistNow(); }}
                     onDragOver={(e) => onChipDragOver(e, i)}
-                    className={`group relative shrink-0 snap-start w-60 sm:w-64 rounded-3xl p-4 text-left text-white bg-gradient-to-br ${gradOf(col)} shadow-md overflow-hidden transition-all cursor-pointer ${
+                    className={`group relative shrink-0 snap-start w-60 sm:w-64 rounded-3xl p-4 text-left text-white bg-gradient-to-br ${gradOf(col)} shadow-md overflow-hidden transition-all cursor-pointer focus:outline-none focus:ring-2 focus:ring-slate-400 ${
                       on ? "ring-2 ring-offset-2 ring-slate-900" : "opacity-80 hover:opacity-100"
                     } ${dragIndex === i ? "opacity-40 scale-95" : ""}`}>
                     <div className="absolute -right-6 -top-8 h-24 w-24 rounded-full bg-white/10" />
@@ -1499,14 +1537,20 @@ export default function App({ cloud, onLogout }) {
                       <span className="inline-flex items-center gap-1 rounded-full bg-white/20 px-2 py-0.5 text-[11px] font-medium capitalize backdrop-blur-sm">
                         {s.type === "personal" ? <PiggyBank size={12} /> : <Wallet size={12} />} {s.type}
                       </span>
-                      {on && <span className="text-[11px] font-semibold bg-white/25 rounded-full px-2 py-0.5">Activo</span>}
+                      {on && (
+                        <button onClick={(e) => { e.stopPropagation(); setModal("spaceSettings"); }}
+                          aria-label="Editar espacio: nombre y color"
+                          className="inline-flex items-center gap-1 rounded-full bg-white/25 hover:bg-white/45 px-2 py-0.5 text-[11px] font-semibold backdrop-blur-sm transition-colors">
+                          <Palette size={12} /> Editar
+                        </button>
+                      )}
                     </div>
                     <p className="relative text-2xl font-bold tabular-nums mt-6 leading-none">{fmt(total, s.currency)}</p>
                     <div className="relative flex items-end justify-between mt-3">
                       <p className="text-sm font-medium truncate pr-2">{s.name}</p>
                       <span className="text-[11px] font-medium text-white/80 shrink-0">{s.currency}</span>
                     </div>
-                  </button>
+                  </div>
                 );
               })}
               <button onClick={() => setModal("newSpace")}
