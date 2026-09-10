@@ -60,3 +60,21 @@ export async function saveState(uid, stateData) {
   if (error) throw error;
   return true;
 }
+
+/* suscripción en tiempo real a los cambios de la fila del usuario (otro dispositivo) */
+export function subscribeState(uid, onData) {
+  const c = getClient();
+  if (!c) return () => {};
+  const channel = c
+    .channel("user_state_" + uid)
+    .on(
+      "postgres_changes",
+      { event: "*", schema: "public", table: "user_state", filter: "user_id=eq." + uid },
+      (payload) => {
+        const row = payload && payload.new;
+        if (row && row.data) onData(row.data);
+      }
+    )
+    .subscribe();
+  return () => { try { c.removeChannel(channel); } catch (_) {} };
+}

@@ -1391,24 +1391,39 @@ export default function App({ cloud, onLogout }) {
     };
   }, [cloud, loaded]);
 
-  // sincronización automática: al volver a la app, trae el estado más reciente de la nube
+  // sincronización automática y continua (Realtime + sondeo + al enfocar)
   useEffect(() => {
-    const pull = async () => {
-      if (document.visibilityState !== "visible" || !loaded) return;
-      if (saveTimer.current) return; // hay cambios locales sin guardar: no pisar
-      try {
-        const remote = await cloud.load();
-        if (remote && Array.isArray(remote.spaces)
-          && JSON.stringify(remote) !== JSON.stringify(stateRef.current)) {
-          firstSave.current = true; // adoptar remoto sin re-guardarlo (evita eco)
-          setState(remote);
-          cloud.saveCache(remote);
-        }
-      } catch (_) {}
+    if (!loaded) return;
+
+    // adopta datos de la nube si son distintos y no hay una edición local a medio guardar
+    const adopt = (data) => {
+      if (saveTimer.current) return; // cambios locales sin guardar: no pisar
+      if (data && Array.isArray(data.spaces)
+        && JSON.stringify(data) !== JSON.stringify(stateRef.current)) {
+        firstSave.current = true; // adoptar sin re-guardar (evita eco)
+        setState(data);
+        cloud.saveCache(data);
+      }
     };
+
+    // 1) tiempo real: cambios desde otro dispositivo llegan al instante
+    const unsub = cloud.subscribe ? cloud.subscribe(adopt) : () => {};
+
+    // 2) respaldo: trae el estado remoto cada 5s mientras la pestaña esté visible
+    const pull = async () => {
+      if (document.visibilityState !== "visible") return;
+      if (saveTimer.current) return;
+      try { adopt(await cloud.load()); } catch (_) {}
+    };
+    const iv = setInterval(pull, 5000);
+
+    // 3) al volver el foco / hacerse visible, sincroniza de inmediato
     document.addEventListener("visibilitychange", pull);
     window.addEventListener("focus", pull);
+
     return () => {
+      unsub();
+      clearInterval(iv);
       document.removeEventListener("visibilitychange", pull);
       window.removeEventListener("focus", pull);
     };

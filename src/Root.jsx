@@ -6,7 +6,7 @@ import {
 import App from "./App.jsx";
 import {
   getConfig, setConfig, getClient,
-  loadState, saveState, loadCache, saveCache,
+  loadState, saveState, loadCache, saveCache, subscribeState,
 } from "./cloud.js";
 
 const inputCls =
@@ -308,6 +308,7 @@ export default function Root() {
     save: (data) => saveState(uid, data),
     loadCache: () => loadCache(uid),
     saveCache: (data) => saveCache(uid, data),
+    subscribe: (onData) => subscribeState(uid, onData),
     setName: async (name) => {
       const c = getClient();
       const { data, error } = await c.auth.updateUser({ data: { name } });
