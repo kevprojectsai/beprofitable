@@ -48,17 +48,18 @@ export function saveCache(uid, data) {
 export async function loadState(uid) {
   const c = getClient();
   const { data, error } = await c
-    .from("user_state").select("data").eq("user_id", uid).maybeSingle();
+    .from("user_state").select("data, updated_at").eq("user_id", uid).maybeSingle();
   if (error) throw error;
-  return data ? data.data : null;
+  return data ? { data: data.data, updatedAt: data.updated_at } : null;
 }
 export async function saveState(uid, stateData) {
   const c = getClient();
+  const updatedAt = new Date().toISOString();
   const { error } = await c
     .from("user_state")
-    .upsert({ user_id: uid, data: stateData, updated_at: new Date().toISOString() });
+    .upsert({ user_id: uid, data: stateData, updated_at: updatedAt });
   if (error) throw error;
-  return true;
+  return updatedAt; // marca de tiempo escrita, para control de concurrencia
 }
 
 /* suscripción en tiempo real a los cambios de la fila del usuario (otro dispositivo) */
@@ -72,7 +73,7 @@ export function subscribeState(uid, onData) {
       { event: "*", schema: "public", table: "user_state", filter: "user_id=eq." + uid },
       (payload) => {
         const row = payload && payload.new;
-        if (row && row.data) onData(row.data);
+        if (row && row.data) onData(row.data, row.updated_at);
       }
     )
     .subscribe();

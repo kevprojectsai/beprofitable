@@ -1331,6 +1331,8 @@ export default function App({ cloud, onLogout }) {
   const firstSave = useRef(true);
   const [storageOk, setStorageOk] = useState(true);
   const saveTimer = useRef(null);
+  const lastSyncRef = useRef(null); // updated_at del estado ya sincronizado con la nube
+  const dirtyRef = useRef(false);   // hay cambios locales aún no confirmados en la nube
 
   useEffect(() => {
     (async () => {
@@ -1338,8 +1340,11 @@ export default function App({ cloud, onLogout }) {
       if (cached) setState(cached);
       try {
         const remote = await cloud.load();
-        if (remote && Array.isArray(remote.spaces)) setState(remote);
-        else if (!cached) setState(EMPTY);
+        if (remote && remote.data && Array.isArray(remote.data.spaces)) {
+          firstSave.current = true; // adoptar el remoto sin volver a guardarlo
+          lastSyncRef.current = remote.updatedAt || null;
+          setState(remote.data);
+        } else if (!cached) setState(EMPTY);
         setStorageOk(true);
       } catch (_) {
         setStorageOk(false);
@@ -1355,32 +1360,40 @@ export default function App({ cloud, onLogout }) {
   const persistNow = (data) => {
     const d = data || stateRef.current;
     if (saveTimer.current) { clearTimeout(saveTimer.current); saveTimer.current = null; }
+    dirtyRef.current = true;
     cloud.saveCache(d);
     setSaveStatus("saving");
     cloud.save(d)
-      .then(() => { setSaveStatus("saved"); setStorageOk(true); })
+      .then((ts) => { lastSyncRef.current = ts || lastSyncRef.current; dirtyRef.current = false; setSaveStatus("saved"); setStorageOk(true); })
       .catch(() => { setSaveStatus("error"); setStorageOk(false); });
   };
 
   useEffect(() => {
     if (!loaded) return;
     if (firstSave.current) { firstSave.current = false; return; }
+    dirtyRef.current = true;
     cloud.saveCache(state);
     setSaveStatus("saving");
     if (saveTimer.current) clearTimeout(saveTimer.current);
     saveTimer.current = setTimeout(async () => {
-      try { await cloud.save(state); setSaveStatus("saved"); setStorageOk(true); }
-      catch (_) { setSaveStatus("error"); setStorageOk(false); }
+      saveTimer.current = null; // el guardado ya no está pendiente
+      try {
+        const ts = await cloud.save(state);
+        lastSyncRef.current = ts || lastSyncRef.current;
+        dirtyRef.current = false;
+        setSaveStatus("saved"); setStorageOk(true);
+      } catch (_) { setSaveStatus("error"); setStorageOk(false); }
     }, 700);
   }, [state, loaded]);
 
   // vacía el guardado pendiente al cerrar o mandar la app a segundo plano
   useEffect(() => {
     const flush = () => {
-      if (document.visibilityState === "hidden" && loaded && !firstSave.current) {
+      if (document.visibilityState === "hidden" && loaded && dirtyRef.current) {
         if (saveTimer.current) { clearTimeout(saveTimer.current); saveTimer.current = null; }
-        cloud.saveCache(stateRef.current);
-        cloud.save(stateRef.current).catch(() => {});
+        const d = stateRef.current;
+        cloud.saveCache(d);
+        cloud.save(d).then((ts) => { lastSyncRef.current = ts || lastSyncRef.current; dirtyRef.current = false; }).catch(() => {});
       }
     };
     document.addEventListener("visibilitychange", flush);
@@ -1395,25 +1408,38 @@ export default function App({ cloud, onLogout }) {
   useEffect(() => {
     if (!loaded) return;
 
-    // adopta datos de la nube si son distintos y no hay una edición local a medio guardar
-    const adopt = (data) => {
-      if (saveTimer.current) return; // cambios locales sin guardar: no pisar
+    // adopta el remoto SOLO si es más nuevo y no hay cambios locales sin confirmar (evita perder datos)
+    const adopt = (data, updatedAt) => {
+      if (dirtyRef.current || saveTimer.current) return; // cambios locales sin confirmar: no pisar
+      if (updatedAt && lastSyncRef.current) {
+        const rt = Date.parse(updatedAt), lt = Date.parse(lastSyncRef.current);
+        if (!isNaN(rt) && !isNaN(lt) && rt <= lt) return; // el remoto no es más reciente
+      }
       if (data && Array.isArray(data.spaces)
         && JSON.stringify(data) !== JSON.stringify(stateRef.current)) {
         firstSave.current = true; // adoptar sin re-guardar (evita eco)
+        lastSyncRef.current = updatedAt || lastSyncRef.current;
+        dirtyRef.current = false;
         setState(data);
         cloud.saveCache(data);
+      } else if (updatedAt) {
+        lastSyncRef.current = updatedAt; // mismo contenido: solo actualiza la marca
       }
     };
 
     // 1) tiempo real: cambios desde otro dispositivo llegan al instante
     const unsub = cloud.subscribe ? cloud.subscribe(adopt) : () => {};
 
-    // 2) respaldo: trae el estado remoto cada 5s mientras la pestaña esté visible
+    // 2) respaldo: cada 5s mientras la pestaña esté visible
     const pull = async () => {
       if (document.visibilityState !== "visible") return;
+      // si hay cambios locales sin confirmar, REINTENTA guardarlos (no traigas remoto)
+      if (dirtyRef.current && !saveTimer.current) { persistNow(); return; }
       if (saveTimer.current) return;
-      try { adopt(await cloud.load()); } catch (_) {}
+      try {
+        const remote = await cloud.load();
+        if (remote) adopt(remote.data, remote.updatedAt);
+      } catch (_) {}
     };
     const iv = setInterval(pull, 5000);
 
