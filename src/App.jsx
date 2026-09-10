@@ -29,12 +29,20 @@ const fmt = (cents, cur = "USD") =>
   new Intl.NumberFormat("es-SV", { style: "currency", currency: cur }).format(
     (cents || 0) / 100
   );
-const todayISO = () => new Date().toISOString().slice(0, 10);
+// zona horaria única de la app: El Salvador (GMT-6), para evitar líos de fechas/horas entre dispositivos
+const TZ = "America/El_Salvador";
+// fecha de hoy (yyyy-mm-dd) según El Salvador, no según el dispositivo
+const todayISO = () =>
+  new Intl.DateTimeFormat("en-CA", { timeZone: TZ, year: "numeric", month: "2-digit", day: "2-digit" }).format(new Date());
 const fmtDate = (iso) =>
-  new Date(iso + "T00:00:00").toLocaleDateString("es-SV", {
+  new Date(iso + "T12:00:00Z").toLocaleDateString("es-SV", {
+    timeZone: TZ,
     day: "2-digit",
     month: "short",
   });
+// hora (HH:MM:SS) según El Salvador
+const fmtTime = (date) =>
+  date.toLocaleTimeString("es-SV", { timeZone: TZ, hour: "2-digit", minute: "2-digit", second: "2-digit", hour12: false });
 
 /* distribute a total across buckets by percent, cents-accurate */
 const allocate = (totalCents, buckets) => {
@@ -1350,6 +1358,7 @@ export default function App({ cloud, onLogout }) {
           setState(remote.data);
         } else if (!cached) setState(EMPTY);
         setStorageOk(true);
+        setLastSync(new Date());
       } catch (_) {
         setStorageOk(false);
       }
@@ -1444,8 +1453,10 @@ export default function App({ cloud, onLogout }) {
       if (saveTimer.current) return;
       try {
         const remote = await cloud.load();
+        setStorageOk(true);
+        setLastSync(new Date()); // sincronización exitosa con la nube
         if (remote) adopt(remote.data, remote.updatedAt);
-      } catch (_) {}
+      } catch (_) { setStorageOk(false); }
     };
     const iv = setInterval(pull, 5000);
 
@@ -1848,7 +1859,7 @@ export default function App({ cloud, onLogout }) {
               <span className="flex items-center gap-1 text-emerald-600"><Check size={12} /> Sincronizado</span>
             )}
             {lastSync && (
-              <span className="text-slate-300">· última sync {lastSync.toLocaleTimeString("es-SV")}</span>
+              <span className="text-slate-300">· última sync {fmtTime(lastSync)} (GMT-6)</span>
             )}
           </p>
           <p className="text-[10px] text-slate-300 mt-0.5">versión {APP_VERSION}</p>
