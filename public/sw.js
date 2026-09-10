@@ -1,4 +1,4 @@
-const C = "gp-cache-v2";
+const C = "gp-cache-v3";
 self.addEventListener("install", () => self.skipWaiting());
 self.addEventListener("activate", (e) =>
   e.waitUntil(
@@ -12,6 +12,13 @@ self.addEventListener("activate", (e) =>
 self.addEventListener("fetch", (e) => {
   const req = e.request;
   if (req.method !== "GET") return;
+
+  const url = new URL(req.url);
+  // NUNCA interceptar/cachear peticiones a otros dominios (Supabase u otras APIs):
+  // deben ir siempre a la red para tener los datos más recientes y sincronizados.
+  if (url.origin !== self.location.origin) return;
+
+  // Navegación (HTML): red primero, con respaldo al caché si no hay conexión.
   if (req.mode === "navigate") {
     e.respondWith(
       fetch(req)
@@ -20,6 +27,8 @@ self.addEventListener("fetch", (e) => {
     );
     return;
   }
+
+  // Assets del mismo origen (JS, CSS, íconos): stale-while-revalidate.
   e.respondWith(
     caches.open(C).then(async (c) => {
       const cached = await c.match(req);

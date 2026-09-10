@@ -168,11 +168,10 @@ function Modal({ title, subtitle, onClose, children, footer, maxW = "max-w-md" }
   return (
     <div
       className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-slate-900/40 p-0 sm:p-4"
-      onMouseDown={onClose}
+      onClick={(e) => { if (e.target === e.currentTarget) onClose(); }}
     >
       <div
         className={`w-full ${maxW} bg-white rounded-t-3xl sm:rounded-2xl shadow-xl max-h-[92vh] flex flex-col`}
-        onMouseDown={(e) => e.stopPropagation()}
       >
         <div className="flex items-start justify-between px-5 pt-5 pb-3 border-b border-slate-100">
           <div>
@@ -306,13 +305,25 @@ function AmountEntry({ amount, setAmount }) {
   );
 }
 
-/* campo de nota, ancho completo y mobile-first (evita traslapes) */
+/* campo de nota, ancho completo y mobile-first (evita traslapes y que el teclado lo tape) */
 function NoteField({ value, onChange, placeholder = "Escribe una nota…" }) {
   return (
     <div>
       <Label>Nota (opcional)</Label>
-      <input value={value} onChange={onChange} placeholder={placeholder} maxLength={120}
-        className={inputCls} />
+      <input
+        type="text"
+        value={value}
+        onChange={onChange}
+        placeholder={placeholder}
+        maxLength={120}
+        enterKeyHint="done"
+        autoComplete="off"
+        onFocus={(e) => {
+          const el = e.target;
+          setTimeout(() => el.scrollIntoView({ block: "center", behavior: "smooth" }), 300);
+        }}
+        className={inputCls}
+      />
     </div>
   );
 }
@@ -1377,6 +1388,29 @@ export default function App({ cloud, onLogout }) {
     return () => {
       document.removeEventListener("visibilitychange", flush);
       window.removeEventListener("pagehide", flush);
+    };
+  }, [cloud, loaded]);
+
+  // sincronización automática: al volver a la app, trae el estado más reciente de la nube
+  useEffect(() => {
+    const pull = async () => {
+      if (document.visibilityState !== "visible" || !loaded) return;
+      if (saveTimer.current) return; // hay cambios locales sin guardar: no pisar
+      try {
+        const remote = await cloud.load();
+        if (remote && Array.isArray(remote.spaces)
+          && JSON.stringify(remote) !== JSON.stringify(stateRef.current)) {
+          firstSave.current = true; // adoptar remoto sin re-guardarlo (evita eco)
+          setState(remote);
+          cloud.saveCache(remote);
+        }
+      } catch (_) {}
+    };
+    document.addEventListener("visibilitychange", pull);
+    window.addEventListener("focus", pull);
+    return () => {
+      document.removeEventListener("visibilitychange", pull);
+      window.removeEventListener("focus", pull);
     };
   }, [cloud, loaded]);
 
