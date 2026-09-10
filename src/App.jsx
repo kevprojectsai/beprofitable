@@ -64,6 +64,26 @@ const allocate = (totalCents, buckets) => {
   return allocs;
 };
 
+/* re-reparte un nuevo total con LAS MISMAS PROPORCIONES de una distribución anterior
+   (conserva los porcentajes que estaban configurados en ese momento) */
+const scaleAllocations = (oldAllocs, newTotalCents) => {
+  const oldTotal = oldAllocs.reduce((s, a) => s + a.amount, 0);
+  if (!oldTotal) return oldAllocs.map((a) => ({ bucketId: a.bucketId, amount: 0 }));
+  const allocs = oldAllocs.map((a) => ({
+    bucketId: a.bucketId,
+    amount: Math.floor((newTotalCents * a.amount) / oldTotal),
+  }));
+  const used = allocs.reduce((s, a) => s + a.amount, 0);
+  let rem = newTotalCents - used;
+  if (rem !== 0 && allocs.length) {
+    // el resto por redondeo va a la cuenta con mayor monto original
+    let mi = 0;
+    oldAllocs.forEach((a, i) => { if (a.amount > oldAllocs[mi].amount) mi = i; });
+    allocs[mi].amount += rem;
+  }
+  return allocs;
+};
+
 const computeBalances = (space) => {
   const bal = {};
   space.buckets.forEach((b) => (bal[b.id] = 0));
@@ -751,39 +771,92 @@ function BucketDetailModal({ space, bucket, balances, onClose, onChangeColor, on
 
 /* ---------- movement detail (cómo se distribuyó) ---------- */
 
-function TxnDetailModal({ space, txn, onClose }) {
+function TxnDetailModal({ space, txn, onClose, onSave }) {
   const cur = space.currency;
-  let title, headAmount, headColor;
-  if (txn.type === "income") {
-    title = "Ingreso repartido"; headAmount = "+" + fmt(txn.amount, cur); headColor = "text-emerald-600";
-  } else if (txn.type === "expense") {
-    title = txn.note || "Gasto"; headAmount = "−" + fmt(txn.amount, cur); headColor = "text-slate-800";
-  } else if (txn.type === "transfer") {
-    title = "Transferencia"; headAmount = fmt(txn.amount, cur); headColor = "text-slate-800";
-  } else {
-    title = txn.note || "Ajuste"; headAmount = (txn.amount < 0 ? "−" : "+") + fmt(Math.abs(txn.amount), cur);
-    headColor = txn.amount < 0 ? "text-rose-600" : "text-slate-800";
-  }
+  const [editing, setEditing] = useState(false);
+  const isNeg = txn.type === "adjust" && txn.amount < 0;
+  const [amount, setAmount] = useState(String(Math.abs(txn.amount) / 100));
+  const [note, setNote] = useState(txn.note || "");
+  const [date, setDate] = useState(txn.date);
+  const cents = parseAmount(amount);
+
+  // ingresos: distribución mostrada (en edición se escala al nuevo monto con las MISMAS proporciones)
+  const shownAllocs = txn.type === "income"
+    ? (editing ? scaleAllocations(txn.allocations, cents || 0) : txn.allocations)
+    : null;
+  const shownTotal = editing ? (cents || 0) : txn.amount;
+
+  let title, headColor;
+  if (txn.type === "income") { title = "Ingreso repartido"; headColor = "text-emerald-600"; }
+  else if (txn.type === "expense") { title = txn.note || "Gasto"; headColor = "text-slate-800"; }
+  else if (txn.type === "transfer") { title = "Transferencia"; headColor = "text-slate-800"; }
+  else { title = txn.note || "Ajuste"; headColor = isNeg ? "text-rose-600" : "text-slate-800"; }
+
+  const sign = txn.type === "income" ? "+" : txn.type === "expense" ? "−" : isNeg ? "−" : "";
+  const headAmount = sign + fmt(editing ? (cents || 0) : Math.abs(txn.amount), cur);
+
+  const save = () => {
+    if (!cents) return;
+    const updated = { ...txn, note: note.trim(), date };
+    if (txn.type === "income") {
+      updated.amount = cents;
+      updated.allocations = scaleAllocations(txn.allocations, cents);
+    } else if (txn.type === "adjust") {
+      updated.amount = isNeg ? -cents : cents;
+    } else {
+      updated.amount = cents;
+    }
+    onSave(updated);
+  };
 
   return (
     <Modal title={title} subtitle={fmtDate(txn.date)} onClose={onClose} maxW="max-w-lg"
-      footer={<button className={btnGhost + " w-full"} onClick={onClose}>Cerrar</button>}>
+      footer={editing ? (
+        <>
+          <button className={btnGhost + " flex-1"} onClick={() => setEditing(false)}>Cancelar</button>
+          <button className={btnPrimary + " flex-1"} disabled={!cents} onClick={save}>Guardar cambios</button>
+        </>
+      ) : (
+        <>
+          <button className={btnGhost + " flex-1"} onClick={onClose}>Cerrar</button>
+          {onSave && (
+            <button className={btnPrimary + " flex-1"} onClick={() => setEditing(true)}>Editar monto</button>
+          )}
+        </>
+      )}>
       <div className="space-y-4">
-        <div className="rounded-3xl bg-slate-50 p-4 text-center">
-          <p className="text-xs text-slate-500">Monto</p>
-          <p className={`text-3xl font-bold tabular-nums ${headColor}`}>{headAmount}</p>
-          {txn.note && txn.type !== "expense" && <p className="text-sm text-slate-500 mt-1">{txn.note}</p>}
-        </div>
+        {editing ? (
+          <>
+            <AmountEntry amount={amount} setAmount={setAmount} />
+            <div className="space-y-3">
+              <div>
+                <Label>Fecha</Label>
+                <input type="date" value={date} onChange={(e) => setDate(e.target.value)} className={inputCls} />
+              </div>
+              <NoteField value={note} onChange={(e) => setNote(e.target.value)} placeholder="Nota…" />
+            </div>
+          </>
+        ) : (
+          <div className="rounded-3xl bg-slate-50 p-4 text-center">
+            <p className="text-xs text-slate-500">Monto</p>
+            <p className={`text-3xl font-bold tabular-nums ${headColor}`}>{headAmount}</p>
+            {txn.note && txn.type !== "expense" && <p className="text-sm text-slate-500 mt-1">{txn.note}</p>}
+          </div>
+        )}
 
         {txn.type === "income" && (
           <div>
             <p className="text-sm font-semibold text-slate-700 mb-1">Cómo se distribuyó</p>
-            <p className="text-xs text-slate-400 mb-3">Reparto aplicado el {fmtDate(txn.date)} (con los porcentajes de esa fecha).</p>
+            <p className="text-xs text-slate-400 mb-3">
+              {editing
+                ? "Se reparte con los mismos porcentajes que estaban configurados en ese momento."
+                : `Reparto aplicado el ${fmtDate(txn.date)} (con los porcentajes de esa fecha).`}
+            </p>
             <div className="space-y-2.5">
-              {txn.allocations.map((a) => {
+              {shownAllocs.map((a) => {
                 const b = space.buckets.find((x) => x.id === a.bucketId);
                 const c = colorOf(b?.color);
-                const pct = txn.amount > 0 ? (a.amount / txn.amount) * 100 : 0;
+                const pct = shownTotal > 0 ? (a.amount / shownTotal) * 100 : 0;
                 return (
                   <div key={a.bucketId} className="rounded-2xl bg-white border border-slate-100 p-3">
                     <div className="flex items-center gap-2">
@@ -802,20 +875,20 @@ function TxnDetailModal({ space, txn, onClose }) {
           </div>
         )}
 
-        {txn.type === "expense" && (
+        {!editing && txn.type === "expense" && (
           <div className="rounded-2xl bg-white border border-slate-100 p-3">
             <p className="text-xs text-slate-400">Cuenta de origen</p>
             <p className="text-sm font-medium text-slate-800">{bname(space, txn.bucketId)}</p>
           </div>
         )}
-        {txn.type === "transfer" && (
+        {!editing && txn.type === "transfer" && (
           <div className="rounded-2xl bg-white border border-slate-100 p-3 flex items-center justify-between gap-2">
             <div><p className="text-xs text-slate-400">Desde</p><p className="text-sm font-medium text-slate-800">{bname(space, txn.fromId)}</p></div>
             <ArrowLeftRight size={16} className="text-slate-400 shrink-0" />
             <div className="text-right"><p className="text-xs text-slate-400">Hacia</p><p className="text-sm font-medium text-slate-800">{bname(space, txn.toId)}</p></div>
           </div>
         )}
-        {txn.type === "adjust" && (
+        {!editing && txn.type === "adjust" && (
           <div className="rounded-2xl bg-white border border-slate-100 p-3">
             <p className="text-xs text-slate-400">Cuenta ajustada</p>
             <p className="text-sm font-medium text-slate-800">{bname(space, txn.bucketId)}</p>
@@ -1882,7 +1955,12 @@ export default function App({ cloud, onLogout }) {
       {space && txnDetailId && (() => {
         const t = space.txns.find((x) => x.id === txnDetailId);
         if (!t) return null;
-        return <TxnDetailModal space={space} txn={t} onClose={() => setTxnDetailId(null)} />;
+        return <TxnDetailModal space={space} txn={t}
+          onClose={() => setTxnDetailId(null)}
+          onSave={(updated) => {
+            updateSpace(space.id, (s) => ({ ...s, txns: s.txns.map((x) => (x.id === updated.id ? updated : x)) }));
+            setTxnDetailId(null);
+          }} />;
       })()}
       {modal === "advice" && <AdviceLibrary onClose={() => setModal(null)} />}
       {modal === "account" && (
