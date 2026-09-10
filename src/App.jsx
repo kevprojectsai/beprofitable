@@ -10,6 +10,9 @@ import AdviceLibrary from "./AdviceLibrary.jsx";
 
 /* ---------- helpers ---------- */
 
+// versión de build (inyectada por vite.config); en dev cae a "dev"
+const APP_VERSION = typeof __BUILD_ID__ !== "undefined" ? __BUILD_ID__ : "dev";
+
 const uid = () =>
   Date.now().toString(36) + Math.random().toString(36).slice(2, 7);
 
@@ -1330,6 +1333,7 @@ export default function App({ cloud, onLogout }) {
   const [dragIndex, setDragIndex] = useState(null);
   const firstSave = useRef(true);
   const [storageOk, setStorageOk] = useState(true);
+  const [lastSync, setLastSync] = useState(null); // hora local de la última sincronización ok
   const saveTimer = useRef(null);
   const lastSyncRef = useRef(null); // updated_at del estado ya sincronizado con la nube
   const dirtyRef = useRef(false);   // hay cambios locales aún no confirmados en la nube
@@ -1364,7 +1368,7 @@ export default function App({ cloud, onLogout }) {
     cloud.saveCache(d);
     setSaveStatus("saving");
     cloud.save(d)
-      .then((ts) => { lastSyncRef.current = ts || lastSyncRef.current; dirtyRef.current = false; setSaveStatus("saved"); setStorageOk(true); })
+      .then((ts) => { lastSyncRef.current = ts || lastSyncRef.current; dirtyRef.current = false; setSaveStatus("saved"); setStorageOk(true); setLastSync(new Date()); })
       .catch(() => { setSaveStatus("error"); setStorageOk(false); });
   };
 
@@ -1381,7 +1385,7 @@ export default function App({ cloud, onLogout }) {
         const ts = await cloud.save(state);
         lastSyncRef.current = ts || lastSyncRef.current;
         dirtyRef.current = false;
-        setSaveStatus("saved"); setStorageOk(true);
+        setSaveStatus("saved"); setStorageOk(true); setLastSync(new Date());
       } catch (_) { setSaveStatus("error"); setStorageOk(false); }
     }, 700);
   }, [state, loaded]);
@@ -1422,8 +1426,10 @@ export default function App({ cloud, onLogout }) {
         dirtyRef.current = false;
         setState(data);
         cloud.saveCache(data);
+        setLastSync(new Date());
       } else if (updatedAt) {
         lastSyncRef.current = updatedAt; // mismo contenido: solo actualiza la marca
+        setLastSync(new Date());
       }
     };
 
@@ -1830,6 +1836,23 @@ export default function App({ cloud, onLogout }) {
             )}
           </>
         )}
+
+        {/* pie: estado de sincronización + versión */}
+        <footer className="mt-10 mb-2 text-center">
+          <p className="text-[11px] text-slate-400 flex items-center justify-center gap-1.5">
+            {saveStatus === "saving" ? (
+              <span className="text-slate-400">Guardando…</span>
+            ) : (saveStatus === "error" || !storageOk) ? (
+              <span className="flex items-center gap-1 text-amber-600"><AlertTriangle size={12} /> Sin conexión — reintentando</span>
+            ) : (
+              <span className="flex items-center gap-1 text-emerald-600"><Check size={12} /> Sincronizado</span>
+            )}
+            {lastSync && (
+              <span className="text-slate-300">· última sync {lastSync.toLocaleTimeString("es-SV")}</span>
+            )}
+          </p>
+          <p className="text-[10px] text-slate-300 mt-0.5">versión {APP_VERSION}</p>
+        </footer>
       </div>
 
       {/* modals */}
