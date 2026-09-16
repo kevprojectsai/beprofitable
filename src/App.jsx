@@ -1415,6 +1415,16 @@ export default function App({ cloud, onLogout }) {
   const firstSave = useRef(true);
   const [storageOk, setStorageOk] = useState(true);
   const [lastSync, setLastSync] = useState(null); // hora local de la última sincronización ok
+  const [hideAmounts, setHideAmounts] = useState(() => {
+    try { return localStorage.getItem("gp_hide_amounts") === "1"; } catch (_) { return false; }
+  });
+  const toggleHide = () => setHideAmounts((v) => {
+    const nv = !v;
+    try { localStorage.setItem("gp_hide_amounts", nv ? "1" : "0"); } catch (_) {}
+    return nv;
+  });
+  // formatea un monto respetando el modo "ocultar montos"
+  const money = (c, cur) => (hideAmounts ? "••••" : fmt(c, cur));
   const saveTimer = useRef(null);
   const lastSyncRef = useRef(null); // updated_at del estado ya sincronizado con la nube
   const dirtyRef = useRef(false);   // hay cambios locales aún no confirmados en la nube
@@ -1671,7 +1681,15 @@ export default function App({ cloud, onLogout }) {
         {state.spaces.length > 0 && (
           <div className="mb-5">
             <div className="flex items-center justify-between mb-2 px-0.5">
-              <h2 className="text-xs font-semibold uppercase tracking-wide text-slate-400">Mis espacios</h2>
+              <div className="flex items-center gap-1.5">
+                <h2 className="text-xs font-semibold uppercase tracking-wide text-slate-400">Mis espacios</h2>
+                <button onClick={toggleHide}
+                  aria-label={hideAmounts ? "Mostrar montos" : "Ocultar montos"}
+                  title={hideAmounts ? "Mostrar montos" : "Ocultar montos"}
+                  className="p-1 rounded-lg text-slate-400 hover:bg-slate-100 hover:text-slate-600">
+                  {hideAmounts ? <EyeOff size={15} /> : <Eye size={15} />}
+                </button>
+              </div>
               {state.spaces.length > 1 && (
                 <button onClick={() => setModal("reorder")} title="Reordenar espacios"
                   className="flex items-center gap-1 rounded-lg px-2 py-1 text-xs font-medium text-slate-500 hover:bg-slate-100">
@@ -1711,7 +1729,7 @@ export default function App({ cloud, onLogout }) {
                         </button>
                       )}
                     </div>
-                    <p className="relative text-2xl font-bold tabular-nums mt-6 leading-none">{fmt(total, s.currency)}</p>
+                    <p className="relative text-2xl font-bold tabular-nums mt-6 leading-none">{money(total, s.currency)}</p>
                     <div className="relative flex items-end justify-between mt-3">
                       <p className="text-sm font-medium truncate pr-2">{s.name}</p>
                       <span className="text-[11px] font-medium text-white/80 shrink-0">{s.currency}</span>
@@ -1765,7 +1783,7 @@ export default function App({ cloud, onLogout }) {
                   </div>
                   <p className="text-xs text-slate-400 mt-3">Balance total</p>
                   <p className="text-4xl font-bold text-slate-900 tabular-nums mt-0.5">
-                    {fmt(totalBalance, space.currency)}
+                    {money(totalBalance, space.currency)}
                   </p>
                 </div>
                 <div className="relative">
@@ -1806,13 +1824,13 @@ export default function App({ cloud, onLogout }) {
                 <div className="flex items-center gap-1.5">
                   <TrendingUp size={15} className="text-emerald-600" />
                   <span className="text-xs text-slate-500">Ingresos del mes</span>
-                  <span className="text-sm font-semibold text-slate-800 tabular-nums">{fmt(monthIncome, space.currency)}</span>
+                  <span className="text-sm font-semibold text-slate-800 tabular-nums">{money(monthIncome, space.currency)}</span>
                 </div>
                 {profitBucket && (
                   <div className="flex items-center gap-1.5">
                     <span className="h-2.5 w-2.5 rounded-full bg-amber-500" />
                     <span className="text-xs text-slate-500">{profitBucket.name}</span>
-                    <span className="text-sm font-semibold text-amber-600 tabular-nums">{fmt(balances[profitBucket.id], space.currency)}</span>
+                    <span className="text-sm font-semibold text-amber-600 tabular-nums">{money(balances[profitBucket.id], space.currency)}</span>
                   </div>
                 )}
               </div>
@@ -1857,7 +1875,7 @@ export default function App({ cloud, onLogout }) {
                     </div>
                     <p className="text-sm font-medium text-slate-600 truncate">{b.name}</p>
                     <p className={`text-xl font-bold tabular-nums mt-0.5 ${bal < 0 ? "text-rose-600" : "text-slate-900"}`}>
-                      {fmt(bal, space.currency)}
+                      {money(bal, space.currency)}
                     </p>
                     <div className="mt-3 h-1.5 rounded-full bg-white/70 overflow-hidden">
                       <div className={`h-full rounded-full ${c.bar} transition-all duration-500 motion-reduce:transition-none`}
@@ -1881,20 +1899,20 @@ export default function App({ cloud, onLogout }) {
                   if (t.type === "income") {
                     icon = <TrendingUp size={16} />; tint = "bg-emerald-50 text-emerald-600";
                     title = "Ingreso repartido"; detail = t.note || "Distribuido entre cuentas";
-                    amt = <span className="text-teal-600">+{fmt(t.amount, space.currency)}</span>;
+                    amt = <span className="text-teal-600">+{money(t.amount, space.currency)}</span>;
                   } else if (t.type === "expense") {
                     icon = <Minus size={16} />; tint = "bg-rose-50 text-rose-600";
                     title = t.note || "Gasto"; detail = bucketName(t.bucketId);
-                    amt = <span className="text-slate-800">−{fmt(t.amount, space.currency)}</span>;
+                    amt = <span className="text-slate-800">−{money(t.amount, space.currency)}</span>;
                   } else if (t.type === "transfer") {
                     icon = <ArrowLeftRight size={16} />; tint = "bg-slate-100 text-slate-500";
                     title = "Transferencia"; detail = `${bucketName(t.fromId)} → ${bucketName(t.toId)}`;
-                    amt = <span className="text-slate-800">{fmt(t.amount, space.currency)}</span>;
+                    amt = <span className="text-slate-800">{money(t.amount, space.currency)}</span>;
                   } else {
                     icon = <SlidersHorizontal size={16} />; tint = "bg-slate-100 text-slate-500";
                     title = t.note || "Ajuste"; detail = bucketName(t.bucketId);
                     amt = <span className={t.amount < 0 ? "text-rose-600" : "text-slate-800"}>
-                      {t.amount < 0 ? "−" : "+"}{fmt(Math.abs(t.amount), space.currency)}</span>;
+                      {t.amount < 0 ? "−" : "+"}{money(Math.abs(t.amount), space.currency)}</span>;
                   }
                   return (
                     <div key={t.id} className="group flex items-center gap-2 px-4 py-3 hover:bg-slate-50/60">
