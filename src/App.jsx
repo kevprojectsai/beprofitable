@@ -4,7 +4,7 @@ import {
   TrendingUp, PiggyBank, Trash2, Check, ChevronRight, Sparkles, Wallet,
   GripVertical, ChevronUp, ChevronDown, ArrowUpDown,
   Download, Upload, Copy, DatabaseBackup, AlertTriangle, LogOut, BookOpen, UserCog,
-  Mail, Lock, Eye, EyeOff, Delete, Palette,
+  Mail, Lock, Eye, EyeOff, Delete, Palette, GraduationCap,
 } from "lucide-react";
 import AdviceLibrary from "./AdviceLibrary.jsx";
 
@@ -899,6 +899,90 @@ function TxnDetailModal({ space, txn, onClose, onSave }) {
   );
 }
 
+/* ---------- tutorial / onboarding ---------- */
+
+const TUTORIAL_STEPS = [
+  {
+    color: "teal", Icon: PiggyBank,
+    title: "La Ganancia es Primero",
+    body: "El método es simple: cuando entra dinero, primero lo repartes en cuentas con un propósito y solo gastas lo que te toca. Así tu ganancia y tu ahorro dejan de ser “lo que sobra”.",
+  },
+  {
+    color: "sky", Icon: Wallet,
+    title: "Espacios",
+    body: "Crea un espacio por cada negocio y uno personal. Cada espacio lleva sus propias cuentas y movimientos, sin mezclarse. Cambia entre ellos deslizando las tarjetas de arriba.",
+  },
+  {
+    color: "violet", Icon: SlidersHorizontal,
+    title: "Tus cuentas (como sobres)",
+    body: "Dentro de un espacio, tu dinero se divide en cuentas con un porcentaje: p. ej. Ganancia 5%, Salario 50%, Impuestos 15%, Operación 30%. Toca “Editar” en Cuentas para ajustar los %.",
+  },
+  {
+    color: "amber", Icon: Plus,
+    title: "Registrar un ingreso",
+    body: "Toca “Ingreso”, escribe el monto y se reparte solo entre tus cuentas según esos porcentajes. Consejo del método: reparte en fechas fijas (p. ej. el 10 y el 25), no cada vez que entra dinero.",
+  },
+  {
+    color: "rose", Icon: ArrowLeftRight,
+    title: "Gasto y Mover",
+    body: "“Gasto” sale de la cuenta que elijas. “Mover” transfiere entre cuentas. Evita gastar de Ganancia e Impuestos: eso es lo que protege tu negocio.",
+  },
+  {
+    color: "cyan", Icon: TrendingUp,
+    title: "Movimientos y detalle",
+    body: "Cada movimiento queda registrado. Toca un ingreso para ver cómo se repartió (con los % de esa fecha) e incluso corregir el monto sin perder la proporción.",
+  },
+  {
+    color: "lime", Icon: Eye,
+    title: "Privacidad y ayuda",
+    body: "Usa el ojito junto a “Mis espacios” para ocultar montos, revisa “Consejos” del método cuando quieras, y todo se sincroniza solo en la nube. ¡Listo para empezar!",
+  },
+];
+
+function TutorialModal({ onClose, onCreateSpace, hasSpaces }) {
+  const [step, setStep] = useState(0);
+  const s = TUTORIAL_STEPS[step];
+  const last = step === TUTORIAL_STEPS.length - 1;
+  const finish = () => {
+    try { localStorage.setItem("gp_tutorial_v1", "1"); } catch (_) {}
+    onClose();
+  };
+  return (
+    <Modal title="Cómo funciona" subtitle={`Paso ${step + 1} de ${TUTORIAL_STEPS.length}`} onClose={finish} maxW="max-w-md"
+      footer={
+        <>
+          {step > 0 ? (
+            <button className={btnGhost + " flex-1"} onClick={() => setStep(step - 1)}>Atrás</button>
+          ) : (
+            <button className={btnGhost + " flex-1"} onClick={finish}>Saltar</button>
+          )}
+          {!last ? (
+            <button className={btnPrimary + " flex-1"} onClick={() => setStep(step + 1)}>Siguiente</button>
+          ) : hasSpaces ? (
+            <button className={btnPrimary + " flex-1"} onClick={finish}>Entendido</button>
+          ) : (
+            <button className={btnPrimary + " flex-1"} onClick={() => { finish(); onCreateSpace(); }}>Crear mi primer espacio</button>
+          )}
+        </>
+      }
+    >
+      <div className="text-center py-2">
+        <div className={`h-16 w-16 rounded-3xl bg-gradient-to-br ${gradOf(s.color)} text-white flex items-center justify-center mx-auto mb-4 shadow-sm`}>
+          <s.Icon size={26} />
+        </div>
+        <h3 className="text-lg font-bold text-slate-900">{s.title}</h3>
+        <p className="text-sm text-slate-600 mt-2 leading-relaxed">{s.body}</p>
+      </div>
+      <div className="flex items-center justify-center gap-1.5 mt-4">
+        {TUTORIAL_STEPS.map((_, i) => (
+          <button key={i} onClick={() => setStep(i)} aria-label={`Paso ${i + 1}`}
+            className={`h-1.5 rounded-full transition-all ${i === step ? "w-5 bg-emerald-600" : "w-1.5 bg-slate-200 hover:bg-slate-300"}`} />
+        ))}
+      </div>
+    </Modal>
+  );
+}
+
 /* ---------- new space ---------- */
 
 function NewSpaceModal({ onClose, onCreate, suggestedColor = "teal" }) {
@@ -1452,6 +1536,12 @@ export default function App({ cloud, onLogout }) {
   const stateRef = useRef(state);
   useEffect(() => { stateRef.current = state; }, [state]);
 
+  // onboarding: abre el tutorial automáticamente la primera vez (por dispositivo)
+  useEffect(() => {
+    if (!loaded) return;
+    try { if (localStorage.getItem("gp_tutorial_v1") !== "1") setModal("tutorial"); } catch (_) {}
+  }, [loaded]);
+
   // guarda de inmediato (para cambios estructurales como reordenar/crear/eliminar espacios)
   const persistNow = (data) => {
     const d = data || stateRef.current;
@@ -1658,6 +1748,11 @@ export default function App({ cloud, onLogout }) {
               <AlertTriangle size={13} /> Sin conexión
             </span>
           )}
+          <button onClick={() => setModal("tutorial")}
+            aria-label="Tutorial"
+            className="flex items-center gap-1.5 rounded-full bg-slate-100 text-slate-600 px-3 py-1.5 text-sm font-medium hover:bg-slate-200">
+            <GraduationCap size={15} /> <span className="hidden sm:inline">Tutorial</span>
+          </button>
           <button onClick={() => setModal("advice")}
             className="flex items-center gap-1.5 rounded-full bg-emerald-50 text-emerald-700 px-3 py-1.5 text-sm font-medium hover:bg-emerald-100">
             <BookOpen size={15} /> <span className="hidden sm:inline">Consejos</span>
@@ -1981,6 +2076,11 @@ export default function App({ cloud, onLogout }) {
           }} />;
       })()}
       {modal === "advice" && <AdviceLibrary onClose={() => setModal(null)} />}
+      {modal === "tutorial" && (
+        <TutorialModal onClose={() => setModal(null)}
+          onCreateSpace={() => setModal("newSpace")}
+          hasSpaces={state.spaces.length > 0} />
+      )}
       {modal === "account" && (
         <AccountModal cloud={cloud} onClose={() => setModal(null)} />
       )}
